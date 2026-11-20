@@ -30,7 +30,7 @@ const ROWS = [
   ['jambon_cru', 'Jambon cru', '🥓', 'viande', 'pc', 40, 5, 'frigo', 14, 6, 2.49, { portion: 3, unitLabel: 'tranche', kw: 'jambon cru serrano bayonne' }],
   ['blanc_dinde', 'Blanc de dinde en tranches', '🦃', 'viande', 'pc', 30, 6, 'frigo', 7, 6, 1.89, { portion: 3, unitLabel: 'tranche', kw: 'blanc dinde tranches', nat: 'Herta' }],
   ['bacon', 'Bacon', '🥓', 'viande', 'pc', 30, 3.5, 'frigo', 21, 10, 1.99, { portion: 3, unitLabel: 'tranche', kw: 'bacon' }],
-  ['lardons', 'Lardons fumés', '🥓', 'viande', 'g', 270, 15, 'frigo', 14, 200, 1.89, { portion: 100, kw: 'lardons allumettes fumes', nat: 'Herta' }],
+  ['lardons', 'Lardons fumés', '🥓', 'viande', 'g', 270, 15, 'frigo', 14, 200, 1.89, { portion: 100, kw: 'lardons allumettes fumes fumees fumee', nat: 'Herta' }],
   ['cordon_bleu', 'Cordon bleu', '🍗', 'viande', 'pc', 230, 13, 'frigo', 10, 4, 3.29, { sizes: [2, 4, 8], portion: 1, unitLabel: 'cordon bleu', kw: 'cordon bleu cordons', nat: 'Le Gaulois' }],
   ['nuggets', 'Nuggets de poulet', '🍗', 'viande', 'g', 250, 14, 'frigo', 10, 400, 3.49, { portion: 180, kw: 'nuggets', nat: 'Père Dodu' }],
 

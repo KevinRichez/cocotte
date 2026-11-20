@@ -286,7 +286,8 @@ const unitLabel = (u) => (u === 'ml' ? 'ml' : u === 'pc' ? 'pièces' : 'g');
 function TicketItem({ it, dlc, open, onToggle, onDlc, onChange, onIgnore }) {
   const ing = ING[it.ing];
   const [scanning, setScanning] = useState(false);
-  const sizeTxt = it.size ? (it.unit === 'pc' ? `x${it.size}` : fmtQty(it.size, it.unit)) : 'grammage ?';
+  const one = it.size ? (it.unit === 'pc' ? `x${it.size}` : fmtQty(it.size, it.unit).replace(/^(\d+)0 ml$/, (m, n) => `${n} cl`)) : 'grammage ?';
+  const sizeTxt = it.packCount > 1 && it.unit !== 'pc' ? `${it.packCount} × ${one}` : one;
   const applyScan = (o) => {
     setScanning(false);
     const patch = { name: o.name, image: o.image, nutri: o.nutri, barcode: o.barcode, brand: o.brand, scanned: true };

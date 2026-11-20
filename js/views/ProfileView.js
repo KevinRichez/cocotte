@@ -81,7 +81,15 @@ function StockTab({ s }) {
   </div>`;
 }
 
-const lotQty = (x) => (ING[x.ing] ? fmtQty(x.qty, ING[x.ing].unit, x.ing) : x.unit ? fmtQty(x.qty, x.unit) : `× ${x.qty}`);
+function lotQty(x, p) {
+  const unit = ING[x.ing]?.unit || x.unit;
+  const pUnit = p?.unit || ING[p?.ing]?.unit;
+  if (p?.size && unit && unit !== 'pc' && pUnit === unit) {
+    const n = x.qty / p.size;
+    if (n >= 1 && Math.abs(n - Math.round(n)) < 0.01) return Math.round(n) === 1 ? productSize(p) : `${Math.round(n)} × ${productSize(p)}`;
+  }
+  return unit ? fmtQty(x.qty, unit, x.ing) : `× ${x.qty}`;
+}
 
 function StockRow({ s, x, onEdit }) {
   const ing = ING[x.ing];
@@ -91,7 +99,7 @@ function StockRow({ s, x, onEdit }) {
       <${Thumb} p=${getProduct(s, x.productId)} emoji=${ing?.emoji} cls="thumb sm stock-thumb" />
       <div class="grow" style="min-width:0">
         <div class="small strong clamp2">${cleanName(x.name)}</div>
-        <div class="subtle xs">${lotQty(x)}</div>
+        <div class="subtle xs">${lotQty(x, getProduct(s, x.productId))}</div>
       </div>
       ${x.dlc && html`<${Badge} tone=${d.tone}>${d.past ? 'À vérifier' : d.label}</${Badge}>`}
     </div>

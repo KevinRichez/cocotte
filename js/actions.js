@@ -220,7 +220,7 @@ export function applyTicket(items, dlcs = {}) {
       let p = d.customProducts.find((x) => x.ticketKey === it.ticketKey && x.store === it.store);
       const data = {
         name: it.name.trim().slice(0, 80) || it.label, ing: ing || null, size, unit: it.unit, store: it.store, price: it.unitPrice,
-        ticketKey: it.ticketKey, storage: it.storage, aisle: ING[ing]?.aisle || 'Divers', emoji: it.ignored ? '🚫' : ING[ing]?.emoji || '🛒', custom: true,
+        ticketKey: it.ticketKey, packCount: it.packCount || 1, storage: it.storage, aisle: ING[ing]?.aisle || 'Divers', emoji: it.ignored ? '🚫' : ING[ing]?.emoji || '🛒', custom: true,
         ignored: !!it.ignored, ignoredReason: it.ignoredReason || null,
         ...(it.image ? { image: it.image } : {}), ...(it.nutri ? { nutri: it.nutri } : {}), ...(it.barcode ? { barcode: it.barcode } : {}), ...(it.brand ? { brand: it.brand } : {}),
       };
@@ -228,7 +228,7 @@ export function applyTicket(items, dlcs = {}) {
       else { p = { id: `perso.${uid()}`, ...data }; d.customProducts.push(p); }
       if (!it.ignored) addToInventory(d, {
         ing: linked, productId: p.id, name: p.name,
-        qty: size ? size * it.qty : it.qty, unit: linked ? null : (size ? it.unit : null),
+        qty: size ? size * (it.packCount || 1) * it.qty : it.qty * (it.packCount || 1), unit: linked ? null : (size ? it.unit : null),
         dlc: dlcs[it.key] || estimateDlc(d, p.id, ing), location: it.storage, nutri: it.nutri || undefined,
       });
       d.shoppingList.forEach((x) => { if (ing && getProduct(d, x.productId)?.ing === ing) x.checked = true; });
