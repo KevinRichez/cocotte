@@ -74,9 +74,46 @@ export function parseSize(label) {
   return null;
 }
 
+const ABBREV = {
+  rb: 'Red Bull', tr: 'tranches', trs: 'tranches', pdt: 'pommes de terre', pdts: 'pommes de terre', choc: 'chocolat', chocol: 'chocolat',
+  framb: 'framboise', yt: 'yaourt', yts: 'yaourts', yaou: 'yaourt', jbn: 'jambon', jamb: 'jambon', sauc: 'saucisse', fromag: 'fromage',
+  emment: 'emmental', moz: 'mozzarella', mozza: 'mozzarella', brioch: 'brioche', poul: 'poulet', hach: 'haché', leg: 'légumes',
+  vbf: 'viande bovine', vb: 'viande bovine', nat: 'nature', ecr: 'écrémé', demi: 'demi', pz: 'pizza', cereal: 'céréales', bisc: 'biscuits',
+  "brioch'burgers": 'brioche burgers', fr: '', bte: '', btl: '', bt: '', slee: '', sleek: '', ls: '', pet: '', fl: '', bq: '', barq: '', surg: '', ss: 'sans', av: 'avec',
+};
+const ACCENTS = {
+  hache: 'haché', hachee: 'hachée', haches: 'hachés', pelees: 'pelées', ecreme: 'écrémé', ecremee: 'écrémée', rape: 'râpé', rapee: 'râpée',
+  creme: 'crème', cremes: 'crèmes', pate: 'pâte', pates: 'pâtes', oeuf: 'œuf', oeufs: 'œufs', legumes: 'légumes', epinards: 'épinards',
+  cereales: 'céréales', cafe: 'café', puree: 'purée', poelee: 'poêlée', roti: 'rôti', rotie: 'rôtie', the: 'thé', gruyere: 'gruyère',
+  emince: 'émincé', eminces: 'émincés', epices: 'épices', peche: 'pêche', fraiche: 'fraîche', frais: 'frais', entiere: 'entière',
+  speciale: 'spéciale', reduit: 'réduit', allege: 'allégé', mais: 'maïs', grillee: 'grillée', grilles: 'grillés', dore: 'doré',
+  edition: 'édition', a: 'à', ble: 'blé', ses: 'sésame', eponges: 'éponges', eponge: 'éponge', ecrase: 'écrasé', petales: 'pétales', allumettes: 'allumettes', legere: 'légère', cuisine: 'cuisiné', cuisinee: 'cuisinée', saute: 'sauté', melange: 'mélange', premiere: 'première',
+};
+
 export function prettyName(label) {
-  const clean = label.replace(BRAND_TOKENS, ' ').replace(/\s{2,}/g, ' ').trim().toLowerCase();
-  return clean.charAt(0).toUpperCase() + clean.slice(1);
+  let s = norm(label).replace(BRAND_TOKENS, ' ');
+  s = s.replace(/\b\d{1,2}\s?x\s?\d+([.,]\d+)?\s?(kg|g|gr|cl|ml|l)\b/g, ' ')
+    .replace(/\b\d+([.,]\d+)?\s?(kg|g|gr|grs|cl|ml|l)\b/g, ' ')
+    .replace(/\bx\s?\d+(=\d+)?\b/g, ' ').replace(/\b\d{1,2}\s?x\b/g, ' ')
+    .replace(/\b\d+\/\d+\b/g, ' ').replace(/\b[a-z]\/[a-z]+\b/g, ' ').replace(/(\.[a-z0-9+]{1,3})+\.?\+?/g, ' ')
+    .replace(/-[a-z]{2,3}\b/g, ' ').replace(/[€*=+]/g, ' ').replace(/^\d{1,2}\s+/, '');
+  const words = s.split(/\s+/).filter(Boolean).map((w) => {
+    if (Object.prototype.hasOwnProperty.call(ABBREV, w)) return ABBREV[w];
+    return ACCENTS[w] || w;
+  }).filter(Boolean);
+  const out = words.join(' ').replace(/\s{2,}/g, ' ').replace(/\s+%/g, ' %').trim();
+  return out ? out.charAt(0).toUpperCase() + out.slice(1) : label;
+}
+
+const NOT_FOR_RECIPES_ING = new Set(['soda', 'sirop', 'smoothie', 'cafe', 'the', 'patate_chips', 'boisson_proteinee', 'jus_multifruit']);
+const NOT_FOR_RECIPES = /\b(red ?bull|rb|monster|coca|cola|pepsi|fanta|sprite|orangina|oasis|ice ?tea|lipton|schweppes|perrier|badoit|vittel|evian|cristaline|volvic|san pellegrino|eau|biere|bieres|vin|vins|whisky|vodka|rhum|champagne|cidre|energy|soda|chips|pringles|bonbons?|haribo|chewing|tabac|cigarettes?|tic tac|mentos)\b/;
+
+export function ignoreReason(label, section, ing) {
+  const t = norm(label);
+  if (NONFOOD_SECTION.test(section) || NONFOOD_WORDS.test(t)) return 'Non alimentaire';
+  if ((ing && NOT_FOR_RECIPES_ING.has(ing)) || NOT_FOR_RECIPES.test(t)) return 'Boisson ou snack';
+  if (/alcool|vins|bieres|spiritueux/.test(section)) return 'Boisson ou snack';
+  return null;
 }
 
 export const ticketKey = (label) => norm(label).replace(/[^a-z0-9%]+/g, ' ').trim();
@@ -148,8 +185,9 @@ export function parseTicket(raw, defaultStore = 'leclerc', memory = []) {
 
     const key = ticketKey(label);
     const mem = remembered.get(key);
-    const nonFood = NONFOOD_SECTION.test(section) || NONFOOD_WORDS.test(t);
-    const ing = mem ? mem.ing : nonFood ? null : matchIngredient(label);
+    const guessed = mem ? mem.ing : (matchIngredient(label) || matchIngredient(prettyName(label)));
+    const reason = mem ? (mem.ignored ? mem.ignoredReason || 'Ignoré' : null) : ignoreReason(label, section, guessed);
+    const ing = reason && reason !== 'Boisson ou snack' ? null : guessed;
     const base = ing ? ING[ing] : null;
     let size = sz?.size ?? null, sizeUnit = sz?.unit ?? null;
     if (sz?.each && base && base.unit !== 'pc') { size = sz.size * sz.each; sizeUnit = sz.eachUnit; }
@@ -169,7 +207,8 @@ export function parseTicket(raw, defaultStore = 'leclerc', memory = []) {
       unit: mem?.unit ?? sizeUnit ?? base?.unit ?? 'pc',
       sizeFromTicket: !!mem || (!!sz && !estimated),
       qty, unitPrice: unit, total: Math.round(unit * qty * 100) / 100,
-      remembered: !!mem, productId: mem?.id || null, nonFood: mem ? !!mem.nonFood : nonFood, frozen,
+      remembered: !!mem, productId: mem?.id || null, ignored: !!reason, ignoredReason: reason, frozen,
+      image: mem?.image || null, nutri: mem?.nutri || null, barcode: mem?.barcode || null, brand: mem?.brand || null,
       storage: mem?.storage || (frozen ? 'frigo' : base?.storage) || (/cremerie|boucherie|charcuterie|traiteur|frais|poissonnerie|fromage/.test(section) ? 'frigo' : 'placard'),
     });
   });

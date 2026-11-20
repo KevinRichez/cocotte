@@ -178,7 +178,7 @@ function stockFromProduct(d, productId, packs, dlc) {
   if (!p) return;
   const ing = p.ing && ING[p.ing] ? p.ing : null;
   addToInventory(d, {
-    ing, productId: p.id, name: p.name,
+    ing, productId: p.id, name: p.custom ? p.name : (ING[p.ing]?.name || p.name),
     qty: p.size && (ing || p.unit) ? p.size * packs : packs,
     unit: !ing && p.size ? p.unit : null,
     dlc: dlc || estimateDlc(d, p.id, ing),
@@ -220,14 +220,16 @@ export function applyTicket(items, dlcs = {}) {
       let p = d.customProducts.find((x) => x.ticketKey === it.ticketKey && x.store === it.store);
       const data = {
         name: it.name.trim().slice(0, 80) || it.label, ing: ing || null, size, unit: it.unit, store: it.store, price: it.unitPrice,
-        ticketKey: it.ticketKey, storage: it.storage, aisle: ING[ing]?.aisle || 'Divers', emoji: it.nonFood ? '🧽' : ING[ing]?.emoji || '🛒', custom: true, nonFood: !!it.nonFood,
+        ticketKey: it.ticketKey, storage: it.storage, aisle: ING[ing]?.aisle || 'Divers', emoji: it.ignored ? '🚫' : ING[ing]?.emoji || '🛒', custom: true,
+        ignored: !!it.ignored, ignoredReason: it.ignoredReason || null,
+        ...(it.image ? { image: it.image } : {}), ...(it.nutri ? { nutri: it.nutri } : {}), ...(it.barcode ? { barcode: it.barcode } : {}), ...(it.brand ? { brand: it.brand } : {}),
       };
       if (p) Object.assign(p, data);
       else { p = { id: `perso.${uid()}`, ...data }; d.customProducts.push(p); }
-      if (!it.nonFood) addToInventory(d, {
+      if (!it.ignored) addToInventory(d, {
         ing: linked, productId: p.id, name: p.name,
         qty: size ? size * it.qty : it.qty, unit: linked ? null : (size ? it.unit : null),
-        dlc: dlcs[it.key] || estimateDlc(d, p.id, ing), location: it.storage,
+        dlc: dlcs[it.key] || estimateDlc(d, p.id, ing), location: it.storage, nutri: it.nutri || undefined,
       });
       d.shoppingList.forEach((x) => { if (ing && getProduct(d, x.productId)?.ing === ing) x.checked = true; });
       hItems.push({ productId: p.id, name: p.name, store: it.store, aisle: p.aisle, qty: it.qty, price: it.unitPrice });
@@ -298,4 +300,33 @@ export function setSlotServings(date, meal, servings) {
     if (!slot) return;
     if (servings === 1) delete slot.servings; else slot.servings = servings;
   });
+}
+
+export function enrichFromScan({ lotId, productId }, off) {
+  let label = off.name;
+  const prev = update((d) => {
+    const lot = lotId ? d.inventory.find((x) => x.id === lotId) : null;
+    const pid = productId || lot?.productId;
+    const info = { offName: off.name, image: off.image || undefined, nutri: off.nutri || undefined, barcode: off.barcode, brand: off.brand || undefined, quantity: off.quantity || undefined };
+    Object.keys(info).forEach((k) => info[k] === undefined && delete info[k]);
+    const custom = pid && d.customProducts.find((p) => p.id === pid);
+    const ingId = lot?.ing || custom?.ing || getProduct(d, pid)?.ing || off.ing;
+    if (off.size && (!ingId || ING[ingId].unit === off.unit)) { info.size = off.size; info.unit = off.unit; }
+    let oldSize = null;
+    if (custom) { oldSize = custom.size; Object.assign(custom, info, { name: off.name }); }
+    else if (pid && getProduct(d, pid)) { oldSize = getProduct(d, pid).size; d.productOverrides[pid] = { ...(d.productOverrides[pid] || {}), ...info }; }
+    else if (lot) {
+      const p = { id: `perso.${uid()}`, name: off.name, ing: lot.ing || off.ing || null, store: null, price: 0, storage: lot.location, custom: true, emoji: ING[lot.ing]?.emoji || '🛒', aisle: ING[lot.ing]?.aisle || 'Divers', ...info };
+      d.customProducts.push(p);
+      lot.productId = p.id;
+    }
+    if (lot) {
+      lot.name = off.name;
+      if (off.nutri) lot.nutri = off.nutri;
+      const unitOk = !lot.ing || !off.size || ING[lot.ing].unit === off.unit;
+      if (off.size && unitOk && oldSize && Math.abs(lot.qty / oldSize - Math.round(lot.qty / oldSize)) < 0.01) lot.qty = Math.round(lot.qty / oldSize) * off.size;
+      if (!lot.ing && off.size) lot.unit = off.unit;
+    }
+  });
+  undoable(prev, `Fiche mise à jour : ${label}`);
 }

@@ -55,6 +55,8 @@ js/
 - Formats : `sizes` par ingrédient (x1, x2, x4, à l'unité...). L'id du format par défaut reste `magasin.ingredient.palier`, les autres ajoutent `.sN`. La liste générée choisit le plus petit format suffisant.
 - Produits scannés : photo, grammage (`unit` g ou ml) et nutrition Open Food Facts. `ingNutri()` utilise ces vraies valeurs dans les calculs de kcal quand l'aliment est en stock.
 - Les logos officiels des marques ne sont pas utilisés (droits) : pastilles colorées par type de marque (`BrandPill`).
+- Ticket : noms nettoyés (`prettyName` : sans grammage, abréviations développées, accents), grammage à part. Boissons, snacks (chips, sodas, eau, alcool) et non-alimentaire sont « ignorés » : comptés dans le budget, pas rangés, réactivables dans la liste repliée en bas de l'aperçu. Mémoire par `ticketKey` dans `customProducts`.
+- Scan d'un produit (stock ou aperçu de ticket) : `enrichFromScan` met à jour la fiche (photo, nutrition, code-barres, grammage si même unité que l'aliment). Produit catalogue : `productOverrides[productId]` ; produit perso : modifié directement. Titres via `productTitle()`, grammage via `productSize()`.
 
 ### Invariants
 

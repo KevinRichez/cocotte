@@ -1,14 +1,15 @@
 import { html, useState, useEffect, useMemo } from '../lib/h.js';
 import { useStore, update } from '../store.js';
 import { Icon, Chip, Seg, Sheet, Swipeable, Stepper, Toggle, Empty, useDebounced } from '../components/ui.js';
-import { ProductSearch, ProductRow, BrandPill, Thumb } from '../components/ProductSearch.js';
+import { ProductSearch, ProductRow, BrandPill, Thumb, ScanSheet, NutritionTable } from '../components/ProductSearch.js';
 import { AISLES, STORES, storeLabel } from '../data/products.js';
 import { ING, INGREDIENTS, CATEGORIES, fmtQty } from '../data/ingredients.js';
 import { fmtDayLong, fmtShort, relDay, today } from '../lib/dates.js';
 import {
-  listItemInfo, listTotal, euro, productPrice, estimateDlc, getProduct, productsForIng, unitPriceLabel, searchProducts, userStores,
+  listItemInfo, listTotal, euro, productPrice, estimateDlc, getProduct, productsForIng, unitPriceLabel, searchProducts, userStores, productTitle, productSize,
 } from '../lib/engine.js';
 import { parseTicket, SAMPLE_TICKET } from '../lib/ticket.js';
+import { toast } from '../lib/toast.js';
 import { ticketTextFromFile, takeSharedTicket } from '../lib/ticketFile.js';
 import { toggleItem, checkAll, setItemQty, removeItem, addToList, finishShopping, applyTicket, swapItemProduct } from '../actions.js';
 
@@ -99,8 +100,9 @@ function ActiveList({ s }) {
           <div class=${`list-item ${it.checked ? 'checked' : ''}`} onClick=${() => toggleItem(it.id)} style="cursor:pointer">
             <span class=${`check ${it.checked ? 'on pop' : ''}`}><${Icon} name="check" size=${16} stroke=${3} /></span>
             <div class="grow" style="min-width:0">
-              <div class="item-name strong small clamp2">${info.prod?.image ? html`<img class="inline-img" src=${info.prod.image} alt="" loading="lazy" referrerpolicy="no-referrer" />` : info.emoji} ${info.name}</div>
+              <div class="item-name strong small clamp2">${info.prod?.image ? html`<img class="inline-img" src=${info.prod.image} alt="" loading="lazy" referrerpolicy="no-referrer" />` : info.emoji} ${info.prod ? productTitle(info.prod) : info.name}</div>
               <div class="item-sub">
+                ${info.prod && productSize(info.prod) && html`<span class="psize">${productSize(info.prod)}</span>`}
                 ${info.prod && html`<${BrandPill} p=${info.prod} />`}
                 ${it.source === 'plan' && html`<span class="badge sage xs">Planning</span>`}
                 ${info.prod?.ing && productsForIng(s, info.prod.ing).length > 1 && html`<button type="button" class="link-btn" onClick=${(e) => { e.stopPropagation(); setEditItem(it); }}>Changer</button>`}
@@ -281,22 +283,30 @@ function Trip({ s, x, open, onToggle }) {
 const ING_GROUPS = Object.entries(CATEGORIES).map(([k, c]) => ({ k, c, rows: INGREDIENTS.filter((x) => x.cat === k) }));
 const unitLabel = (u) => (u === 'ml' ? 'ml' : u === 'pc' ? 'pièces' : 'g');
 
-function TicketItem({ it, dlc, open, onToggle, onDlc, onChange, onRemove }) {
+function TicketItem({ it, dlc, open, onToggle, onDlc, onChange, onIgnore }) {
   const ing = ING[it.ing];
+  const [scanning, setScanning] = useState(false);
   const sizeTxt = it.size ? (it.unit === 'pc' ? `x${it.size}` : fmtQty(it.size, it.unit)) : 'grammage ?';
+  const applyScan = (o) => {
+    setScanning(false);
+    const patch = { name: o.name, image: o.image, nutri: o.nutri, barcode: o.barcode, brand: o.brand, scanned: true };
+    const ingId = it.ing || o.ing;
+    if (o.size && (!ingId || ING[ingId].unit === o.unit)) Object.assign(patch, { size: o.size, unit: o.unit, sizeFromTicket: true });
+    if (!it.ing && o.ing) Object.assign(patch, { ing: o.ing, storage: ING[o.ing]?.storage || it.storage });
+    onChange(patch);
+  };
   return html`<div class=${`ticket-item ${open ? 'open' : ''}`}>
     <button type="button" class="list-item ti-head" onClick=${onToggle}>
-      <span class="ti-emoji">${it.nonFood ? '🧽' : ing?.emoji || '🛒'}</span>
+      ${it.image ? html`<img class="pick-img" src=${it.image} alt="" referrerpolicy="no-referrer" />` : html`<span class="ti-emoji">${ing?.emoji || '🛒'}</span>`}
       <div class="grow" style="min-width:0">
         <div class="small strong clamp2">${it.name}</div>
-        ${it.nonFood
-          ? html`<div class="subtle xs">${it.qty > 1 ? `${it.qty} × ` : ''}${euro(it.unitPrice)} · non alimentaire, compté dans le budget mais pas rangé</div>`
-          : html`<div class="subtle xs"><span class=${it.sizeFromTicket ? '' : 'est'}>${sizeTxt}${it.sizeFromTicket ? '' : ' (estimé)'}</span> · ${it.qty > 1 ? `${it.qty} × ` : ''}${euro(it.unitPrice)} · ${it.storage === 'frigo' ? '🧊' : '📦'}${it.frozen ? ' surgelé' : ''}${it.remembered ? ' · ✓ retenu' : ''}${!ing ? ' · aliment ?' : ''}</div>`}
+        <div class="subtle xs"><span class=${it.sizeFromTicket ? '' : 'est'}>${sizeTxt}${it.sizeFromTicket ? '' : ' (estimé)'}</span> · ${it.qty > 1 ? `${it.qty} × ` : ''}${euro(it.unitPrice)} · ${it.storage === 'frigo' ? '🧊' : '📦'}${it.frozen ? ' surgelé' : ''}${it.scanned ? ' · 📷 scanné' : it.remembered ? ' · ✓ retenu' : ''}${!ing ? ' · aliment ?' : ''}</div>
       </div>
       <${Icon} name=${open ? 'chevU' : 'edit'} size=${16} class="muted" />
     </button>
     ${open && html`<div class="ti-edit">
-      <label class="label">Nom du produit</label>
+      <button type="button" class="btn outline block" onClick=${() => setScanning(true)}><${Icon} name="barcode" size=${18} />Scanner le produit (photo, nutrition, grammage)</button>
+      <label class="label" style="margin-top:12px">Nom du produit</label>
       <input class="field" maxlength="80" value=${it.name} onInput=${(e) => onChange({ name: e.currentTarget.value })} />
       <p class="subtle xs" style="margin:4px 2px 0">Sur le ticket : ${it.label}</p>
       <div class="row" style="gap:8px;margin-top:10px">
@@ -318,15 +328,17 @@ function TicketItem({ it, dlc, open, onToggle, onDlc, onChange, onRemove }) {
       </select>
       <div class="row between" style="margin-top:12px">
         <div class="chips">
-          <${Chip} sm active=${!it.nonFood && it.storage === 'frigo'} onClick=${() => onChange({ storage: 'frigo', nonFood: false })}>🧊 Frigo</${Chip}>
-          <${Chip} sm active=${!it.nonFood && it.storage === 'placard'} onClick=${() => onChange({ storage: 'placard', nonFood: false })}>📦 Placard</${Chip}>
-          <${Chip} sm active=${it.nonFood} onClick=${() => onChange({ nonFood: !it.nonFood })}>🧽 Non alimentaire</${Chip}>
+          <${Chip} sm active=${it.storage === 'frigo'} onClick=${() => onChange({ storage: 'frigo' })}>🧊 Frigo</${Chip}>
+          <${Chip} sm active=${it.storage === 'placard'} onClick=${() => onChange({ storage: 'placard' })}>📦 Placard</${Chip}>
         </div>
-        <button type="button" class="btn ghost sm" onClick=${onRemove}><${Icon} name="trash" size=${15} />Retirer</button>
+        <button type="button" class="btn ghost sm" onClick=${onIgnore}><${Icon} name="x" size=${15} />Ignorer</button>
       </div>
+      ${it.nutri && html`<div style="margin-top:10px"><${NutritionTable} nutri=${it.nutri} /></div>`}
     </div>`}
-    ${!it.nonFood && html`<div class="ti-dlc"><span class="subtle xs">À consommer avant</span>
-      <input type="date" class="field date-sm" value=${dlc} onInput=${(e) => onDlc(e.currentTarget.value)} /></div>`}
+    <div class="ti-dlc"><span class="subtle xs">À consommer avant</span>
+      <input type="date" class="field date-sm" value=${dlc} onInput=${(e) => onDlc(e.currentTarget.value)} /></div>
+    <${ScanSheet} open=${scanning} onClose=${() => setScanning(false)} onFound=${applyScan}
+      onUnknown=${() => { setScanning(false); toast('Produit inconnu d’Open Food Facts, garde les infos du ticket'); }} />
   </div>`;
 }
 
@@ -359,7 +371,7 @@ function TicketSheet({ open, onClose, s, file }) {
   const apply = () => { applyTicket(parsed.items, dlcs); close(); };
   const footer = parsed
     ? html`<div class="row"><button type="button" class="btn ghost" onClick=${() => setParsed(null)}>Retour</button>
-        <button type="button" class="btn primary grow" disabled=${!parsed.items.length} onClick=${apply}><${Icon} name="check" size=${18} />Tout ranger (${parsed.items.length})</button></div>`
+        <button type="button" class="btn primary grow" disabled=${!parsed.items.length} onClick=${apply}><${Icon} name="check" size=${18} />Tout ranger (${parsed.items.filter((x) => !x.ignored).length})</button></div>`
     : html`<button type="button" class="btn primary block lg" disabled=${!raw.trim() || !!busy} onClick=${() => analyse()}><${Icon} name="sparkles" size=${18} />Analyser le ticket</button>`;
 
   return html`<${Sheet} open=${open} onClose=${close} title="Importer mon ticket" subtitle=${parsed ? `${STORES[parsed.store].name} · ${parsed.items.length} produits` : 'Ticket dématérialisé de ton magasin'} footer=${footer}>
@@ -382,11 +394,19 @@ function TicketSheet({ open, onClose, s, file }) {
     </div>`}
     ${parsed && html`<div>
       <p class="subtle" style="margin:0 2px 10px">Touche un produit pour corriger son nom, son grammage ou l’aliment. Tes corrections sont retenues pour les prochains tickets.</p>
-      <div class="list">${parsed.items.map((it) => html`<${TicketItem} key=${it.key} it=${it} dlc=${dlcs[it.key] || ''}
+      <div class="list">${parsed.items.filter((it) => !it.ignored).map((it) => html`<${TicketItem} key=${it.key} it=${it} dlc=${dlcs[it.key] || ''}
         open=${editing === it.key} onToggle=${() => setEditing(editing === it.key ? null : it.key)}
         onDlc=${(v) => setDlcs({ ...dlcs, [it.key]: v })}
         onChange=${(patch) => setParsed((cur) => ({ ...cur, items: cur.items.map((x) => (x.key === it.key ? { ...x, ...patch } : x)) }))}
-        onRemove=${() => setParsed((cur) => ({ ...cur, items: cur.items.filter((x) => x.key !== it.key) }))} />`)}</div>
+        onIgnore=${() => { setEditing(null); setParsed((cur) => ({ ...cur, items: cur.items.map((x) => (x.key === it.key ? { ...x, ignored: true, ignoredReason: 'Ignoré par toi' } : x)) })); }} />`)}</div>
+      ${parsed.items.some((it) => it.ignored) && html`<details class="ignored-box">
+        <summary>Ignorés (${parsed.items.filter((it) => it.ignored).length}) · comptés dans le budget, pas rangés</summary>
+        <div class="list" style="margin-top:8px">${parsed.items.filter((it) => it.ignored).map((it) => html`<div class="list-item" key=${it.key}>
+          <div class="grow" style="min-width:0"><div class="small strong clamp2">${it.name}</div>
+            <div class="subtle xs">${it.ignoredReason || 'Ignoré'} · ${it.qty > 1 ? `${it.qty} × ` : ''}${euro(it.unitPrice)}</div></div>
+          <button type="button" class="btn soft sm" onClick=${() => setParsed((cur) => ({ ...cur, items: cur.items.map((x) => (x.key === it.key ? { ...x, ignored: false, ignoredReason: null } : x)) }))}>Réactiver</button>
+        </div>`)}</div>
+      </details>`}
       ${parsed.ignored.length > 0 && html`<details style="margin-top:10px"><summary class="subtle">${parsed.ignored.length} lignes ignorées (en-têtes, totaux…)</summary>
         <pre class="subtle xs" style="white-space:pre-wrap">${parsed.ignored.join('\n')}</pre></details>`}
     </div>`}

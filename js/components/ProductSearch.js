@@ -2,7 +2,7 @@ import { html, useState, useEffect, useRef, useMemo } from '../lib/h.js';
 import { Icon, Sheet, Chip, useDebounced } from './ui.js';
 import { ING, INGREDIENTS, CATEGORIES, guessIngredient } from '../data/ingredients.js';
 import { STORES, AISLES, storeLabel } from '../data/products.js';
-import { searchProducts, productPrice, euro, userStores, norm } from '../lib/engine.js';
+import { searchProducts, productPrice, euro, userStores, norm, productTitle, productSize } from '../lib/engine.js';
 import { searchOnline, lookupBarcode } from '../lib/off.js';
 import { startScan, decodeImage } from '../lib/scanner.js';
 import { saveCustomProduct } from '../actions.js';
@@ -39,8 +39,8 @@ export function ProductRow({ s, p, onClick, right }) {
   return html`<button type="button" class="pick-row" onClick=${onClick}>
     <${Thumb} p=${p} />
     <span class="pick-main">
-      <span class="pick-name">${p.name}</span>
-      <${BrandPill} p=${p} />
+      <span class="pick-name">${p.barcode && !p.custom ? p.name : productTitle(p)}</span>
+      <span class="bline">${productSize(p) && html`<span class="psize">${productSize(p)}</span>`}<${BrandPill} p=${p} /></span>
     </span>
     ${right !== undefined ? right : (productPrice(s, p.id) > 0 && html`<span class="pick-price num">${euro(productPrice(s, p.id))}</span>`)}
   </button>`;

@@ -21,7 +21,7 @@ export function emptyState(profile = defaultProfile()) {
     profile,
     prefs: { ing: {}, recipe: {} },
     inventory: [], plan: {}, deferred: [], shoppingList: [], history: [],
-    customProducts: [], customRecipes: [],
+    customProducts: [], customRecipes: [], productOverrides: {},
     priceOverrides: {}, brandPrefs: {}, lastTicketSync: null,
   };
 }

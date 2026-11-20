@@ -38,7 +38,22 @@ export const userStores = (s) => (s.profile.stores?.length ? s.profile.stores : 
 
 export function getProduct(s, id) {
   if (!id) return null;
-  return bankProduct(id) || s.customProducts.find((p) => p.id === id) || null;
+  const b = bankProduct(id);
+  if (b) { const ov = s.productOverrides?.[id]; return ov ? { ...b, ...ov, id } : b; }
+  return s.customProducts.find((p) => p.id === id) || null;
+}
+export function productTitle(p) {
+  if (!p) return '';
+  if (p.custom || p.offName) return p.offName || p.name;
+  return ING[p.ing]?.name || p.name;
+}
+export const cleanName = (n) => String(n || '').replace(/\s+(x\d+|\d+([.,]\d+)?\s?(g|kg|ml|cl|l|L)|à l'unité)$/u, '').trim();
+export function productSize(p) {
+  if (!p?.size) return '';
+  const unit = p.unit || ING[p.ing]?.unit;
+  if (unit === 'pc') return p.size === 1 ? "à l'unité" : `x${p.size}`;
+  if (unit === 'ml') return p.size >= 1000 ? `${(p.size / 1000).toLocaleString('fr-FR')} L` : p.size >= 100 && p.size % 10 === 0 ? `${p.size / 10} cl` : `${p.size} ml`;
+  return p.size >= 1000 ? `${(p.size / 1000).toLocaleString('fr-FR')} kg` : `${p.size} g`;
 }
 export const productPrice = (s, id) => s.priceOverrides?.[id]?.price ?? getProduct(s, id)?.price ?? 0;
 

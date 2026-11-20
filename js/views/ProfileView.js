@@ -2,13 +2,13 @@ import { html, useState, useMemo } from '../lib/h.js';
 import { useStore, update, getState, restore, replaceState } from '../store.js';
 import { migrate } from '../data/seed.js';
 import { Icon, Chip, Badge, Seg, Sheet, Swipeable, Stepper, Empty, TierPicker } from '../components/ui.js';
-import { ProductSearch, NutritionTable, Thumb, BrandPill } from '../components/ProductSearch.js';
+import { ProductSearch, NutritionTable, Thumb, BrandPill, ScanSheet } from '../components/ProductSearch.js';
 import { ING, INGREDIENTS, CATEGORIES, fmtQty } from '../data/ingredients.js';
 import { STORES, storeLabel, packLabel } from '../data/products.js';
 import { EQUIPMENT, COOKING_EQUIPMENT } from '../data/recipes.js';
 import { dlcInfo, fmtShort, addDays, today } from '../lib/dates.js';
-import { kcalFmt, targets, GOAL_LABEL, getProduct, estimateDlc, TIER_META, TIER_KEYS, allRecipes, norm } from '../lib/engine.js';
-import { addStock, updateStockItem, removeStockItem, setTier, setProfile } from '../actions.js';
+import { kcalFmt, targets, GOAL_LABEL, getProduct, estimateDlc, TIER_META, TIER_KEYS, allRecipes, norm, cleanName, productTitle, productSize } from '../lib/engine.js';
+import { addStock, updateStockItem, removeStockItem, setTier, setProfile, enrichFromScan } from '../actions.js';
 import { toast } from '../lib/toast.js';
 
 export function ProfileView() {
@@ -90,7 +90,7 @@ function StockRow({ s, x, onEdit }) {
     <div class="list-item" onClick=${onEdit} style="cursor:pointer">
       <${Thumb} p=${getProduct(s, x.productId)} emoji=${ing?.emoji} cls="thumb sm stock-thumb" />
       <div class="grow" style="min-width:0">
-        <div class="small strong clamp2">${x.name}</div>
+        <div class="small strong clamp2">${cleanName(x.name)}</div>
         <div class="subtle xs">${lotQty(x)}</div>
       </div>
       ${x.dlc && html`<${Badge} tone=${d.tone}>${d.past ? 'À vérifier' : d.label}</${Badge}>`}
@@ -116,7 +116,7 @@ function AddStockSheet({ open, s, onClose }) {
   const qty = !p ? 0 : hasPack ? p.size * f.packs : ing ? f.grams : f.packs;
   const sizeLabel = hasPack ? (ing ? packLabel(ing, p.size) : fmtQty(p.size, p.unit)) : '';
   const save = () => {
-    addStock({ productId: p.id, ing: ing ? p.ing : null, name: p.name, qty, unit: !ing && hasPack ? p.unit : null, dlc: f.dlc || null, location: f.location, nutri: p.nutri });
+    addStock({ productId: p.id, ing: ing ? p.ing : null, name: productTitle(p), qty, unit: !ing && hasPack ? p.unit : null, dlc: f.dlc || null, location: f.location, nutri: p.nutri });
     close();
   };
   const set = (patch) => setF({ ...f, ...patch });
@@ -155,16 +155,25 @@ function AddStockSheet({ open, s, onClose }) {
 }
 
 function StockEditSheet({ id, s, onClose }) {
+  const [scanning, setScanning] = useState(false);
   const x = s.inventory.find((i) => i.id === id);
   if (!x) return html`<${Sheet} open=${false} />`;
   const ing = ING[x.ing];
   const unit = ing?.unit || x.unit;
   const step = !unit || unit === 'pc' ? 1 : unit === 'ml' ? 100 : 50;
   const nutri = x.nutri || getProduct(s, x.productId)?.nutri || (ing && ing.unit !== 'pc' ? { kcal: ing.kcal, prot: ing.prot } : null);
-  return html`<${Sheet} open=${true} onClose=${onClose} title=${x.name} subtitle=${x.addedAt ? `Ajouté le ${fmtShort(x.addedAt)}` : ''}
+  return html`<${Sheet} open=${true} onClose=${onClose} title=${cleanName(x.name)} subtitle=${x.addedAt ? `Ajouté le ${fmtShort(x.addedAt)}` : ''}
     footer=${html`<div class="row">
       <button type="button" class="btn ghost" onClick=${() => { removeStockItem(x.id); onClose(); }}><${Icon} name="trash" size=${17} />Fini</button>
       <button type="button" class="btn primary grow" onClick=${onClose}>OK</button></div>`}>
+    <div class="row" style="gap:12px;margin-bottom:12px">
+      <${Thumb} p=${getProduct(s, x.productId)} emoji=${ing?.emoji} cls="thumb sm stock-thumb" />
+      <button type="button" class="btn outline grow" onClick=${() => setScanning(true)}><${Icon} name="barcode" size=${18} />${getProduct(s, x.productId)?.barcode ? 'Re-scanner le produit' : 'Scanner ce produit'}</button>
+    </div>
+    <p class="subtle xs" style="margin:-4px 2px 12px">Le scan ajoute la vraie photo, la nutrition et le grammage exact à la fiche. Elle sera réutilisée pour tes listes et tes prochains tickets.</p>
+    <${ScanSheet} open=${scanning} onClose=${() => setScanning(false)}
+      onFound=${(o) => { setScanning(false); enrichFromScan({ lotId: x.id }, o); }}
+      onUnknown=${() => { setScanning(false); toast('Produit inconnu d’Open Food Facts'); }} />
     <label class="label" for="st-name">Nom</label>
     <input id="st-name" class="field" maxlength="80" value=${x.name} onChange=${(e) => { const v = e.currentTarget.value.trim(); if (v) updateStockItem(x.id, { name: v.slice(0, 80) }); }} />
     <div class="card flat" style="margin-top:12px">

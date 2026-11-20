@@ -297,6 +297,7 @@ const ROWS = [
   ['chocolat_blanc', 'Chocolat blanc', '🍫', 'sucre', 'g', 550, 6, 'placard', 270, 100, 1.19, { kw: 'chocolat blanc' }],
   ['pepites_chocolat', 'Pépites de chocolat', '🍫', 'sucre', 'g', 500, 6, 'placard', 365, 100, 1.49, { kw: 'pepites chocolat patissier' }],
   ['sirop_erable', "Sirop d'érable", '🍁', 'sucre', 'g', 260, 0, 'placard', 365, 250, 4.99, { aisle: 'Petit-déjeuner', kw: 'sirop erable agave' }],
+  ['bicarbonate', 'Bicarbonate alimentaire', '🧂', 'sucre', 'g', 0, 0, 'placard', 900, 500, 1.29, { staple: true, kw: 'bicarbonate soude' }],
   ['levure', 'Levure chimique', '🧁', 'sucre', 'g', 0, 0, 'placard', 700, 50, 0.89, { staple: true, kw: 'levure chimique boulanger' }],
 
   ['vinaigre', 'Vinaigre balsamique', '🫙', 'sale', 'ml', 100, 0.5, 'placard', 700, 250, 1.79, { staple: true, kw: 'vinaigre balsamique cidre vin' }],
