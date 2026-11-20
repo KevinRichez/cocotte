@@ -286,10 +286,12 @@ function TicketItem({ it, dlc, open, onToggle, onDlc, onChange, onRemove }) {
   const sizeTxt = it.size ? (it.unit === 'pc' ? `x${it.size}` : fmtQty(it.size, it.unit)) : 'grammage ?';
   return html`<div class=${`ticket-item ${open ? 'open' : ''}`}>
     <button type="button" class="list-item ti-head" onClick=${onToggle}>
-      <span class="ti-emoji">${ing?.emoji || '🛒'}</span>
+      <span class="ti-emoji">${it.nonFood ? '🧽' : ing?.emoji || '🛒'}</span>
       <div class="grow" style="min-width:0">
         <div class="small strong clamp2">${it.name}</div>
-        <div class="subtle xs"><span class=${it.sizeFromTicket ? '' : 'est'}>${sizeTxt}</span> · ${it.qty > 1 ? `${it.qty} × ` : ''}${euro(it.unitPrice)} · ${it.storage === 'frigo' ? '🧊' : '📦'}${it.remembered ? ' · ✓ retenu' : ''}${!ing ? ' · aliment ?' : ''}</div>
+        ${it.nonFood
+          ? html`<div class="subtle xs">${it.qty > 1 ? `${it.qty} × ` : ''}${euro(it.unitPrice)} · non alimentaire, compté dans le budget mais pas rangé</div>`
+          : html`<div class="subtle xs"><span class=${it.sizeFromTicket ? '' : 'est'}>${sizeTxt}${it.sizeFromTicket ? '' : ' (estimé)'}</span> · ${it.qty > 1 ? `${it.qty} × ` : ''}${euro(it.unitPrice)} · ${it.storage === 'frigo' ? '🧊' : '📦'}${it.frozen ? ' surgelé' : ''}${it.remembered ? ' · ✓ retenu' : ''}${!ing ? ' · aliment ?' : ''}</div>`}
       </div>
       <${Icon} name=${open ? 'chevU' : 'edit'} size=${16} class="muted" />
     </button>
@@ -316,14 +318,15 @@ function TicketItem({ it, dlc, open, onToggle, onDlc, onChange, onRemove }) {
       </select>
       <div class="row between" style="margin-top:12px">
         <div class="chips">
-          <${Chip} sm active=${it.storage === 'frigo'} onClick=${() => onChange({ storage: 'frigo' })}>🧊 Frigo</${Chip}>
-          <${Chip} sm active=${it.storage === 'placard'} onClick=${() => onChange({ storage: 'placard' })}>📦 Placard</${Chip}>
+          <${Chip} sm active=${!it.nonFood && it.storage === 'frigo'} onClick=${() => onChange({ storage: 'frigo', nonFood: false })}>🧊 Frigo</${Chip}>
+          <${Chip} sm active=${!it.nonFood && it.storage === 'placard'} onClick=${() => onChange({ storage: 'placard', nonFood: false })}>📦 Placard</${Chip}>
+          <${Chip} sm active=${it.nonFood} onClick=${() => onChange({ nonFood: !it.nonFood })}>🧽 Non alimentaire</${Chip}>
         </div>
         <button type="button" class="btn ghost sm" onClick=${onRemove}><${Icon} name="trash" size=${15} />Retirer</button>
       </div>
     </div>`}
-    <div class="ti-dlc"><span class="subtle xs">À consommer avant</span>
-      <input type="date" class="field date-sm" value=${dlc} onInput=${(e) => onDlc(e.currentTarget.value)} /></div>
+    ${!it.nonFood && html`<div class="ti-dlc"><span class="subtle xs">À consommer avant</span>
+      <input type="date" class="field date-sm" value=${dlc} onInput=${(e) => onDlc(e.currentTarget.value)} /></div>`}
   </div>`;
 }
 

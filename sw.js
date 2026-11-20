@@ -1,4 +1,4 @@
-const VERSION = 'cocotte-v7';
+const VERSION = 'cocotte-v8';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css', 'css/fonts.css', 'fonts/jakarta.woff2', 'fonts/bricolage.woff2',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png',
@@ -42,14 +42,21 @@ self.addEventListener('fetch', (e) => {
   }
   if (request.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;
+  const heavy = url.pathname.includes('/vendor/ocr/') || url.pathname.includes('/vendor/pdf/') || url.pathname.includes('/fonts/');
   e.respondWith(
     caches.open(VERSION).then(async (cache) => {
       const cached = await cache.match(request, { ignoreSearch: true });
-      const network = fetch(request).then((res) => {
+      if (heavy && cached) return cached;
+      const network = fetch(request, { cache: 'no-cache' }).then((res) => {
         if (res.ok && res.type === 'basic') cache.put(request, res.clone());
         return res;
-      }).catch(() => cached || cache.match('index.html'));
-      return cached ? (e.waitUntil(network), cached) : network;
+      });
+      const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 3500));
+      try {
+        const res = await (cached ? Promise.race([network, timeout]) : network);
+        if (res) return res;
+      } catch {}
+      return cached || (await cache.match('index.html')) || Response.error();
     })
   );
 });

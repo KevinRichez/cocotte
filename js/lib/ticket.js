@@ -1,4 +1,42 @@
-import { guessIngredient, ING } from '../data/ingredients.js';
+import { INGREDIENTS, ING } from '../data/ingredients.js';
+
+const STOP = new Set(['les', 'des', 'aux', 'avec', 'sans', 'pour', 'bte', 'btl', 'slee', 'sleek', 'pet', 'fl', 'ls', 'jard', 'pack', 'lot', 'format', 'familial', 'maxi', 'offre', 'sachet', 'barquette', 'bocal', 'boite', 'extra', 'origine', 'france', 'label', 'ses', 'the']);
+const wordsOf = (s) => s.split(/[^a-z0-9%]+/).filter(Boolean);
+const wmatch = (a, b) => a === b || (Math.min(a.length, b.length) >= 4 && (a.startsWith(b) || b.startsWith(a)));
+const ING_INDEX = INGREDIENTS.map((ing) => ({
+  ing,
+  keys: [...new Set(wordsOf(ing.keys).filter((w) => w.length >= 3))],
+  name: wordsOf(ing.name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()).filter((w) => w.length >= 3),
+  pcts: (ing.keys.match(/\d+%/g) || []),
+}));
+
+export function matchIngredient(label) {
+  const t = norm(label).replace(BRAND_TOKENS, ' ');
+  const pct = t.match(/(\d+)\s?%/)?.[1];
+  const words = wordsOf(t.replace(/\d+\s?x\s?\d+\s?(g|kg|cl|ml|l)?\b|\d+([.,]\d+)?\s?(kg|g|gr|l|cl|ml)\b|\bx\s?\d+\b|\d+\s?%|\b\d+\b/g, ' '))
+    .filter((w) => w.length >= 3 && !STOP.has(w) && !/^\d/.test(w));
+  if (!words.length) return null;
+  let best = null;
+  for (const { ing, keys, name, pcts } of ING_INDEX) {
+    const matched = words.filter((w) => keys.some((k) => wmatch(w, k)));
+    if (!matched.length) continue;
+    let score = matched.reduce((n, w) => n + (w.length > 5 ? 2 : 1), 0);
+    if (pct && pcts.length) score += pcts.includes(`${pct}%`) ? 3 : -3;
+    const nameHits = name.filter((n) => words.some((w) => wmatch(w, n))).length;
+    if (!nameHits) score -= 1;
+    const first = keys.some((k) => wmatch(words[0], k));
+    if (first) score += 1;
+    const coverage = matched.length / words.length;
+    const ok = score >= 3 || (score >= 1 && coverage >= 0.5) || (first && score >= 2);
+    if (!ok) continue;
+    const rank = score + coverage + (name.length ? nameHits / name.length : 0);
+    if (!best || rank > best.rank) best = { id: ing.id, rank };
+  }
+  return best?.id || null;
+}
+
+const NONFOOD_SECTION = /maison|entretien|hygiene|parfumerie|bazar|droguerie|textile|animal|jardin|papeterie|electro|multimedia|jouet|culture|auto/;
+const NONFOOD_WORDS = /essuie|eponge|brosse|lessive|papier toilette|papier wc|mouchoir|shampo|gel douche|dentifrice|sac poubelle|liquide vaisselle|rouleau|recharge|rechar|javel|desodorisant|coton|rasoir|serviette|couche|litiere|piles?\b|ampoule/;
 import { STORES } from '../data/products.js';
 
 const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -16,7 +54,12 @@ const BRAND_TOKENS = /\b(mr|m\.r\.|marque repere|repere|eco\s?\+|eco plus|bio vi
 
 export function parseSize(label) {
   const t = norm(label).replace(',', '.');
-  let m = t.match(/(\d+(?:\.\d+)?)\s*(kg|g|gr|grs|l|cl|ml)\b/);
+  let m = t.match(/\b(\d{1,2})\s?x\s?(\d+(?:\.\d+)?)\s?(kg|g|gr|cl|ml|l)\b/);
+  if (m) {
+    const each = parseFloat(m[2]) * (m[3] === 'kg' || m[3] === 'l' ? 1000 : m[3] === 'cl' ? 10 : 1);
+    return { size: parseInt(m[1], 10), unit: 'pc', each: Math.round(each), eachUnit: /l$/.test(m[3]) ? 'ml' : 'g' };
+  }
+  m = t.match(/(\d+(?:\.\d+)?)\s*(kg|g|gr|grs|l|cl|ml)\b/);
   if (m) {
     const n = parseFloat(m[1]);
     const u = m[2];
@@ -26,7 +69,7 @@ export function parseSize(label) {
     if (u === 'cl') return { size: Math.round(n * 10), unit: 'ml' };
     return { size: Math.round(n), unit: 'ml' };
   }
-  m = t.match(/\bx\s?(\d{1,3})\b/) || t.match(/\b(\d{1,3})\s?x\b/) || t.match(/\b(\d{1,3})\s?(pieces|pcs|tranches|tr|oeufs|pots|steaks)\b/);
+  m = t.match(/\bx\s?(\d{1,3})\b/) || t.match(/\b(\d{1,3})\s?x\b/) || t.match(/\b(\d{1,3})\s?(pieces|pcs|tranches|tr|oeufs|pots|steaks)\b/) || t.match(/^(\d{1,2})\s+[a-z]{3}/);
   if (m) return { size: parseInt(m[1], 10), unit: 'pc' };
   return null;
 }
@@ -68,8 +111,15 @@ export function parseTicket(raw, defaultStore = 'leclerc', memory = []) {
   const items = [];
   const ignored = [];
 
+  const firstSection = lines.findIndex((l) => /^\*?\s*>>/.test(l));
+  let section = '';
+  let done = false;
   lines.forEach((line, n) => {
+    if (done || (firstSection >= 0 && n < firstSection)) { ignored.push(line); return; }
     const t = norm(line);
+    const sec = line.match(/^\*?\s*>>\s*(.+)$/);
+    if (sec) { section = norm(sec[1]); return; }
+    if (items.length && (/^total\b/.test(t.trim()) || /^-{6,}/.test(t.trim()))) { done = true; ignored.push(line); return; }
     const weight = line.match(WEIGHT_LINE);
     if (weight && !/[a-z]{4}/i.test(line.replace(WEIGHT_LINE, ''))) {
       const last = items[items.length - 1];
@@ -91,24 +141,36 @@ export function parseTicket(raw, defaultStore = 'leclerc', memory = []) {
     else if (cols && Math.abs(parseInt(cols[1], 10) * money(cols[2]) - total) < 0.05) { qty = parseInt(cols[1], 10); unit = money(cols[2]); label = label.slice(0, cols.index); }
     else if (cols) label = label.slice(0, cols.index);
     if (weight) { label = label.replace(WEIGHT_LINE, ' '); }
-    label = label.replace(/\s{2,}/g, ' ').replace(/^[\d\s*-]+(?=[a-z])/i, '').trim();
+    label = label.replace(/^\s*\*\s*/, '').replace(/\s{2,}/g, ' ').trim();
+    const sz = weight ? { size: Math.round(money(weight[1]) * 1000), unit: 'g' } : parseSize(label);
+    label = label.replace(/^\d{1,2}\s+(?=[a-z]{3})/i, (m) => (sz?.unit === 'pc' ? m : '')).trim();
     if (!label) { ignored.push(line); return; }
 
     const key = ticketKey(label);
     const mem = remembered.get(key);
-    const sz = weight ? { size: Math.round(money(weight[1]) * 1000), unit: 'g' } : parseSize(label);
-    const ing = mem ? mem.ing : guessIngredient(label);
+    const nonFood = NONFOOD_SECTION.test(section) || NONFOOD_WORDS.test(t);
+    const ing = mem ? mem.ing : nonFood ? null : matchIngredient(label);
     const base = ing ? ING[ing] : null;
+    let size = sz?.size ?? null, sizeUnit = sz?.unit ?? null;
+    if (sz?.each && base && base.unit !== 'pc') { size = sz.size * sz.each; sizeUnit = sz.eachUnit; }
+    let estimated = false;
+    if (!size && base && !base.staple) {
+      const perUnit = base.pack.price / base.pack.size;
+      size = base.unit === 'pc' ? Math.max(1, Math.round(unit / perUnit)) : Math.max(10, Math.round(unit / perUnit / 10) * 10);
+      sizeUnit = base.unit;
+      estimated = true;
+    }
+    const frozen = /surgel/.test(section);
     items.push({
-      key: `t${n}`, lineIndex: n, line, label, ticketKey: key, store, tier: tierHint(t, store),
+      key: `t${n}`, lineIndex: n, line, label, ticketKey: key, store, tier: tierHint(t, store), section,
       name: mem?.name || prettyName(label),
       ing: ing || null,
-      size: mem?.size ?? sz?.size ?? base?.pack.size ?? null,
-      unit: mem?.unit ?? sz?.unit ?? base?.unit ?? 'pc',
-      sizeFromTicket: !!(mem || sz),
+      size: mem?.size ?? size,
+      unit: mem?.unit ?? sizeUnit ?? base?.unit ?? 'pc',
+      sizeFromTicket: !!mem || (!!sz && !estimated),
       qty, unitPrice: unit, total: Math.round(unit * qty * 100) / 100,
-      remembered: !!mem, productId: mem?.id || null,
-      storage: mem?.storage || base?.storage || 'placard',
+      remembered: !!mem, productId: mem?.id || null, nonFood: mem ? !!mem.nonFood : nonFood, frozen,
+      storage: mem?.storage || (frozen ? 'frigo' : base?.storage) || (/cremerie|boucherie|charcuterie|traiteur|frais|poissonnerie|fromage/.test(section) ? 'frigo' : 'placard'),
     });
   });
   return { store, items, ignored: ignored.filter((l) => /[a-z]{3}/i.test(l) && !SKIP.test(norm(l))) };

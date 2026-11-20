@@ -220,11 +220,11 @@ export function applyTicket(items, dlcs = {}) {
       let p = d.customProducts.find((x) => x.ticketKey === it.ticketKey && x.store === it.store);
       const data = {
         name: it.name.trim().slice(0, 80) || it.label, ing: ing || null, size, unit: it.unit, store: it.store, price: it.unitPrice,
-        ticketKey: it.ticketKey, storage: it.storage, aisle: ING[ing]?.aisle || 'Divers', emoji: ING[ing]?.emoji || '🛒', custom: true,
+        ticketKey: it.ticketKey, storage: it.storage, aisle: ING[ing]?.aisle || 'Divers', emoji: it.nonFood ? '🧽' : ING[ing]?.emoji || '🛒', custom: true, nonFood: !!it.nonFood,
       };
       if (p) Object.assign(p, data);
       else { p = { id: `perso.${uid()}`, ...data }; d.customProducts.push(p); }
-      addToInventory(d, {
+      if (!it.nonFood) addToInventory(d, {
         ing: linked, productId: p.id, name: p.name,
         qty: size ? size * it.qty : it.qty, unit: linked ? null : (size ? it.unit : null),
         dlc: dlcs[it.key] || estimateDlc(d, p.id, ing), location: it.storage,
