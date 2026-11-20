@@ -455,3 +455,12 @@ textarea.steps-input { font-family: var(--font); font-size: 14px; min-height: 12
 .howto b { color: var(--ink); font-size: 14px; }
 .paste-box { margin-top: 12px; }
 .paste-box summary { cursor: pointer; font-weight: 700; font-size: 14px; color: var(--sage-600); padding: 6px 2px; }
+
+.ticket-item + .ticket-item { border-top: 1px solid var(--line); }
+.ti-head { width: 100%; text-align: left; min-height: 58px; border: 0 !important; }
+.ti-emoji { font-size: 20px; width: 28px; text-align: center; flex: none; }
+.ti-edit { padding: 4px 14px 12px; background: var(--surface); }
+.ti-dlc { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 14px 12px 54px; background: var(--surface); }
+.ticket-item.open { background: var(--sage-50); }
+.ticket-item.open .ti-head, .ticket-item.open .ti-edit, .ticket-item.open .ti-dlc { background: var(--sage-50); }
+.est { color: var(--amber); font-weight: 700; }

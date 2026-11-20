@@ -3,7 +3,7 @@ import { useStore, update } from '../store.js';
 import { Icon, Chip, Seg, Sheet, Swipeable, Stepper, Toggle, Empty, useDebounced } from '../components/ui.js';
 import { ProductSearch, ProductRow, BrandPill, Thumb } from '../components/ProductSearch.js';
 import { AISLES, STORES, storeLabel } from '../data/products.js';
-import { ING } from '../data/ingredients.js';
+import { ING, INGREDIENTS, CATEGORIES, fmtQty } from '../data/ingredients.js';
 import { fmtDayLong, fmtShort, relDay, today } from '../lib/dates.js';
 import {
   listItemInfo, listTotal, euro, productPrice, estimateDlc, getProduct, productsForIng, unitPriceLabel, searchProducts, userStores,
@@ -278,6 +278,55 @@ function Trip({ s, x, open, onToggle }) {
       </div>`;
 }
 
+const ING_GROUPS = Object.entries(CATEGORIES).map(([k, c]) => ({ k, c, rows: INGREDIENTS.filter((x) => x.cat === k) }));
+const unitLabel = (u) => (u === 'ml' ? 'ml' : u === 'pc' ? 'pièces' : 'g');
+
+function TicketItem({ it, dlc, open, onToggle, onDlc, onChange, onRemove }) {
+  const ing = ING[it.ing];
+  const sizeTxt = it.size ? (it.unit === 'pc' ? `x${it.size}` : fmtQty(it.size, it.unit)) : 'grammage ?';
+  return html`<div class=${`ticket-item ${open ? 'open' : ''}`}>
+    <button type="button" class="list-item ti-head" onClick=${onToggle}>
+      <span class="ti-emoji">${ing?.emoji || '🛒'}</span>
+      <div class="grow" style="min-width:0">
+        <div class="small strong clamp2">${it.name}</div>
+        <div class="subtle xs"><span class=${it.sizeFromTicket ? '' : 'est'}>${sizeTxt}</span> · ${it.qty > 1 ? `${it.qty} × ` : ''}${euro(it.unitPrice)} · ${it.storage === 'frigo' ? '🧊' : '📦'}${it.remembered ? ' · ✓ retenu' : ''}${!ing ? ' · aliment ?' : ''}</div>
+      </div>
+      <${Icon} name=${open ? 'chevU' : 'edit'} size=${16} class="muted" />
+    </button>
+    ${open && html`<div class="ti-edit">
+      <label class="label">Nom du produit</label>
+      <input class="field" maxlength="80" value=${it.name} onInput=${(e) => onChange({ name: e.currentTarget.value })} />
+      <p class="subtle xs" style="margin:4px 2px 0">Sur le ticket : ${it.label}</p>
+      <div class="row" style="gap:8px;margin-top:10px">
+        <div class="grow"><label class="label">Grammage / quantité</label>
+          <input class="field num" inputmode="decimal" placeholder="Ex : 500" value=${it.size ?? ''} onInput=${(e) => { const v = parseFloat(e.currentTarget.value.replace(',', '.')); onChange({ size: isFinite(v) && v > 0 ? v : null, sizeFromTicket: true }); }} /></div>
+        <div style="width:118px"><label class="label">Unité</label>
+          <select class="field" value=${it.unit} onChange=${(e) => onChange({ unit: e.currentTarget.value, sizeFromTicket: true })}>
+            <option value="g">g</option><option value="ml">ml</option><option value="pc">pièces</option></select></div>
+      </div>
+      <div class="row" style="gap:8px;margin-top:10px">
+        <div class="grow"><label class="label">Prix unitaire (€)</label>
+          <input class="field num" inputmode="decimal" value=${String(it.unitPrice).replace('.', ',')} onInput=${(e) => { const v = parseFloat(e.currentTarget.value.replace(',', '.')); if (isFinite(v) && v >= 0) onChange({ unitPrice: v }); }} /></div>
+        <div><label class="label">Quantité</label><${Stepper} value=${it.qty} min=${1} max=${50} onChange=${(v) => onChange({ qty: v })} /></div>
+      </div>
+      <label class="label" style="margin-top:10px">C’est quoi comme aliment ?</label>
+      <select class="field" value=${it.ing || ''} onChange=${(e) => { const v = e.currentTarget.value || null; onChange({ ing: v, storage: ING[v]?.storage || it.storage }); }}>
+        <option value="">Autre (non déduit par les recettes)</option>
+        ${ING_GROUPS.map(({ k, c, rows }) => html`<optgroup key=${k} label=${c.label}>${rows.map((x) => html`<option value=${x.id}>${x.name}</option>`)}</optgroup>`)}
+      </select>
+      <div class="row between" style="margin-top:12px">
+        <div class="chips">
+          <${Chip} sm active=${it.storage === 'frigo'} onClick=${() => onChange({ storage: 'frigo' })}>🧊 Frigo</${Chip}>
+          <${Chip} sm active=${it.storage === 'placard'} onClick=${() => onChange({ storage: 'placard' })}>📦 Placard</${Chip}>
+        </div>
+        <button type="button" class="btn ghost sm" onClick=${onRemove}><${Icon} name="trash" size=${15} />Retirer</button>
+      </div>
+    </div>`}
+    <div class="ti-dlc"><span class="subtle xs">À consommer avant</span>
+      <input type="date" class="field date-sm" value=${dlc} onInput=${(e) => onDlc(e.currentTarget.value)} /></div>
+  </div>`;
+}
+
 function TicketSheet({ open, onClose, s, file }) {
   const [raw, setRaw] = useState('');
   const [parsed, setParsed] = useState(null);
@@ -285,11 +334,12 @@ function TicketSheet({ open, onClose, s, file }) {
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
   const close = () => { setRaw(''); setParsed(null); setDlcs({}); setBusy(null); setError(null); onClose(); };
+  const [editing, setEditing] = useState(null);
   const analyse = (text = raw) => {
-    const res = parseTicket(text.slice(0, 20000), userStores(s)[0]);
+    const res = parseTicket(text.slice(0, 20000), userStores(s)[0], s.customProducts);
     const est = {};
-    for (const it of res.items) { const p = getProduct(s, it.productId); est[it.key] = estimateDlc(s, p.id, p.ing); }
-    setDlcs(est); setParsed(res);
+    for (const it of res.items) est[it.key] = estimateDlc(s, it.productId, it.ing);
+    setDlcs(est); setParsed(res); setEditing(null);
     if (!res.items.length) setError('Aucun produit reconnu. Vérifie le texte ci-dessous ou réessaie avec une capture plus nette.');
   };
   const readFile = async (f) => {
@@ -309,7 +359,7 @@ function TicketSheet({ open, onClose, s, file }) {
         <button type="button" class="btn primary grow" disabled=${!parsed.items.length} onClick=${apply}><${Icon} name="check" size=${18} />Tout ranger (${parsed.items.length})</button></div>`
     : html`<button type="button" class="btn primary block lg" disabled=${!raw.trim() || !!busy} onClick=${() => analyse()}><${Icon} name="sparkles" size=${18} />Analyser le ticket</button>`;
 
-  return html`<${Sheet} open=${open} onClose=${close} title="Importer mon ticket" subtitle=${parsed ? `${STORES[parsed.store].name} · vérifie juste les dates` : 'Ticket dématérialisé de ton magasin'} footer=${footer}>
+  return html`<${Sheet} open=${open} onClose=${close} title="Importer mon ticket" subtitle=${parsed ? `${STORES[parsed.store].name} · ${parsed.items.length} produits` : 'Ticket dématérialisé de ton magasin'} footer=${footer}>
     ${busy && html`<div class="ticket-busy"><span class="spinner"></span><span>${busy}</span></div>`}
     ${error && html`<div class="card tint-amber small" style="margin-bottom:12px">${error}</div>`}
     ${!parsed && !busy && html`<div>
@@ -328,17 +378,13 @@ function TicketSheet({ open, onClose, s, file }) {
       <p class="subtle" style="margin-top:10px">Le ticket est lu sur ton téléphone, rien n’est envoyé en ligne. Les produits sont rangés, les prix réels mis à jour et ta liste cochée.</p>
     </div>`}
     ${parsed && html`<div>
-      <div class="list">${parsed.items.map((it) => {
-        const p = getProduct(s, it.productId);
-        const where = ING[p.ing]?.storage;
-        return html`<div class="list-item" key=${it.key} style="min-height:60px">
-          <span style="font-size:20px">${ING[p.ing]?.emoji}</span>
-          <div class="grow" style="min-width:0"><div class="small strong clamp2">${p.name}</div>
-            <div class="subtle xs">${where === 'frigo' ? '🧊 Frigo' : '📦 Placard'} · ${it.qty > 1 ? `${it.qty} × ` : ''}${euro(it.unitPrice)}${it.suspect ? html` <span class="badge amber xs">prix à vérifier</span>` : ''}</div></div>
-          <input type="date" class="field date-sm" value=${dlcs[it.key] || ''} onInput=${(e) => setDlcs({ ...dlcs, [it.key]: e.currentTarget.value })} />
-        </div>`;
-      })}</div>
-      ${parsed.ignored.length > 0 && html`<details style="margin-top:10px"><summary class="subtle">${parsed.ignored.length} lignes non reconnues</summary>
+      <p class="subtle" style="margin:0 2px 10px">Touche un produit pour corriger son nom, son grammage ou l’aliment. Tes corrections sont retenues pour les prochains tickets.</p>
+      <div class="list">${parsed.items.map((it) => html`<${TicketItem} key=${it.key} it=${it} dlc=${dlcs[it.key] || ''}
+        open=${editing === it.key} onToggle=${() => setEditing(editing === it.key ? null : it.key)}
+        onDlc=${(v) => setDlcs({ ...dlcs, [it.key]: v })}
+        onChange=${(patch) => setParsed((cur) => ({ ...cur, items: cur.items.map((x) => (x.key === it.key ? { ...x, ...patch } : x)) }))}
+        onRemove=${() => setParsed((cur) => ({ ...cur, items: cur.items.filter((x) => x.key !== it.key) }))} />`)}</div>
+      ${parsed.ignored.length > 0 && html`<details style="margin-top:10px"><summary class="subtle">${parsed.ignored.length} lignes ignorées (en-têtes, totaux…)</summary>
         <pre class="subtle xs" style="white-space:pre-wrap">${parsed.ignored.join('\n')}</pre></details>`}
     </div>`}
   </${Sheet}>`;

@@ -19,15 +19,15 @@ async function pdfText(file, onProgress) {
   for (let n = 1; n <= Math.min(doc.numPages, 10); n++) {
     onProgress?.(`Lecture de la page ${n}…`);
     const content = await (await doc.getPage(n)).getTextContent();
-    const rows = new Map();
-    for (const it of content.items) {
-      if (!it.str?.trim()) continue;
-      const y = Math.round(it.transform[5] / 3);
-      if (!rows.has(y)) rows.set(y, []);
-      rows.get(y).push({ x: it.transform[4], s: it.str });
+    const items = content.items.filter((it) => it.str?.trim()).map((it) => ({ x: it.transform[4], y: it.transform[5], h: Math.abs(it.transform[3]) || 8, s: it.str }));
+    items.sort((a, b) => b.y - a.y || a.x - b.x);
+    const rows = [];
+    for (const it of items) {
+      const row = rows.find((r) => Math.abs(r.y - it.y) <= Math.max(2.5, it.h * 0.45));
+      if (row) row.items.push(it); else rows.push({ y: it.y, items: [it] });
     }
-    [...rows.entries()].sort((a, b) => b[0] - a[0]).forEach(([, items]) => {
-      lines.push(items.sort((a, b) => a.x - b.x).map((i) => i.s).join('  ').replace(/\s{3,}/g, '   '));
+    rows.sort((a, b) => b.y - a.y).forEach((r) => {
+      lines.push(r.items.sort((a, b) => a.x - b.x).map((i) => i.s.trim()).join('   '));
     });
   }
   return lines.join('\n');

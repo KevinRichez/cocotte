@@ -1,5 +1,6 @@
 import { html, useState, useMemo } from '../lib/h.js';
-import { useStore, update, getState, restore } from '../store.js';
+import { useStore, update, getState, restore, replaceState } from '../store.js';
+import { migrate } from '../data/seed.js';
 import { Icon, Chip, Badge, Seg, Sheet, Swipeable, Stepper, Empty, TierPicker } from '../components/ui.js';
 import { ProductSearch, NutritionTable, Thumb, BrandPill } from '../components/ProductSearch.js';
 import { ING, INGREDIENTS, CATEGORIES, fmtQty } from '../data/ingredients.js';
@@ -164,7 +165,9 @@ function StockEditSheet({ id, s, onClose }) {
     footer=${html`<div class="row">
       <button type="button" class="btn ghost" onClick=${() => { removeStockItem(x.id); onClose(); }}><${Icon} name="trash" size=${17} />Fini</button>
       <button type="button" class="btn primary grow" onClick=${onClose}>OK</button></div>`}>
-    <div class="card flat">
+    <label class="label" for="st-name">Nom</label>
+    <input id="st-name" class="field" maxlength="80" value=${x.name} onChange=${(e) => { const v = e.currentTarget.value.trim(); if (v) updateStockItem(x.id, { name: v.slice(0, 80) }); }} />
+    <div class="card flat" style="margin-top:12px">
       <div class="row between"><span class="small strong">Quantité</span>
         <${Stepper} value=${x.qty} min=${0} step=${step} format=${(v) => (unit ? fmtQty(v, unit, x.ing) : v)}
           onChange=${(v) => { if (v <= 0) { removeStockItem(x.id); onClose(); } else updateStockItem(x.id, { qty: v }); }} /></div>
@@ -235,6 +238,29 @@ function TierListSheet({ open, title, items, map, onSet, onClose, grouped }) {
   </${Sheet}>`;
 }
 
+function exportData() {
+  const blob = new Blob([JSON.stringify(getState())], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `cocotte-sauvegarde-${today()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast('Sauvegarde téléchargée');
+}
+
+async function importData(e) {
+  const f = e.currentTarget.files?.[0];
+  e.currentTarget.value = '';
+  if (!f || f.size > 20 * 1024 * 1024) return;
+  try {
+    const data = migrate(JSON.parse(await f.text()));
+    if (!data) throw new Error();
+    const prev = getState();
+    replaceState(data);
+    toast('Sauvegarde restaurée', { action: 'Annuler', onAction: () => restore(prev) });
+  } catch { toast('Ce fichier n’est pas une sauvegarde Cocotte'); }
+}
+
 const ACTIVITY = [[1.2, 'Plutôt assis'], [1.4, 'Un peu actif'], [1.6, 'Actif'], [1.8, 'Très actif']];
 
 function ProfileSheet({ open, onClose, s }) {
@@ -282,7 +308,12 @@ function ProfileSheet({ open, onClose, s }) {
     })}</div>
     <div class="card flat" style="margin-top:16px">
       <div class="small">Tout est stocké sur ton téléphone. Les recherches de produits en ligne passent par Open Food Facts.</div>
-      <button type="button" class="btn ghost sm" style="margin-top:10px" onClick=${() => { onClose(); reset(); }}><${Icon} name="refresh" size=${15} />Refaire l’accueil</button>
+      <div class="row wrap" style="gap:8px;margin-top:10px">
+        <button type="button" class="btn ghost sm" onClick=${exportData}><${Icon} name="upload" size=${15} />Sauvegarder mes données</button>
+        <label class="btn ghost sm" style="cursor:pointer"><${Icon} name="refresh" size=${15} />Restaurer une sauvegarde
+          <input type="file" accept="application/json,.json" hidden onChange=${importData} /></label>
+        <button type="button" class="btn ghost sm" onClick=${() => { onClose(); reset(); }}><${Icon} name="refresh" size=${15} />Refaire l’accueil</button>
+      </div>
     </div>
   </${Sheet}>`;
 }

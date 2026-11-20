@@ -212,12 +212,26 @@ export function finishShopping({ keepUnchecked = false, dlcOverrides = {} } = {}
 export function applyTicket(items, dlcs = {}) {
   const t = today();
   const prev = update((d) => {
+    const hItems = [];
     for (const it of items) {
-      d.priceOverrides[it.productId] = { price: it.unitPrice, date: t };
-      stockFromProduct(d, it.productId, it.qty, dlcs[it.key]);
-      d.shoppingList.forEach((x) => { if (x.productId === it.productId || getProduct(d, x.productId)?.ing === getProduct(d, it.productId)?.ing) x.checked = true; });
+      const ing = it.ing && ING[it.ing] ? it.ing : null;
+      const size = it.size > 0 ? it.size : null;
+      const linked = ing && (!size || ING[ing].unit === it.unit) ? ing : null;
+      let p = d.customProducts.find((x) => x.ticketKey === it.ticketKey && x.store === it.store);
+      const data = {
+        name: it.name.trim().slice(0, 80) || it.label, ing: ing || null, size, unit: it.unit, store: it.store, price: it.unitPrice,
+        ticketKey: it.ticketKey, storage: it.storage, aisle: ING[ing]?.aisle || 'Divers', emoji: ING[ing]?.emoji || '🛒', custom: true,
+      };
+      if (p) Object.assign(p, data);
+      else { p = { id: `perso.${uid()}`, ...data }; d.customProducts.push(p); }
+      addToInventory(d, {
+        ing: linked, productId: p.id, name: p.name,
+        qty: size ? size * it.qty : it.qty, unit: linked ? null : (size ? it.unit : null),
+        dlc: dlcs[it.key] || estimateDlc(d, p.id, ing), location: it.storage,
+      });
+      d.shoppingList.forEach((x) => { if (ing && getProduct(d, x.productId)?.ing === ing) x.checked = true; });
+      hItems.push({ productId: p.id, name: p.name, store: it.store, aisle: p.aisle, qty: it.qty, price: it.unitPrice });
     }
-    const hItems = items.map((it) => { const p = getProduct(d, it.productId); return { productId: it.productId, name: p.name, store: p.store, aisle: p.aisle, qty: it.qty, price: it.unitPrice }; });
     const total = Math.round(hItems.reduce((n, x) => n + x.price * x.qty, 0) * 100) / 100;
     d.history.unshift({ id: uid(), date: t, total, count: hItems.reduce((n, x) => n + x.qty, 0), items: hItems, source: 'ticket' });
     d.shoppingList = d.shoppingList.filter((x) => !x.checked);
