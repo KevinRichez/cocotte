@@ -46,7 +46,16 @@ export function parseTicket(raw, defaultStore = 'leclerc') {
     label = label.replace(/\s{2,}/g, ' ');
     const ing = guessIngredient(label);
     const prod = ing && productFor(store, ing, tierHint(norm(label), store));
-    if (prod) items.push({ key: `t${n}`, line, label, productId: prod.id, qty, unitPrice: unit, total });
+    let suspect = false;
+    if (prod && unit > prod.price * 3) {
+      const misread = { 8: 0, 6: 0, 9: 0, 5: 3, 7: 1 }[Math.floor(unit) % 10];
+      if (misread !== undefined) {
+        const candidate = Math.round((unit - (Math.floor(unit) % 10) + misread) * 100) / 100;
+        if (candidate > 0 && candidate <= prod.price * 3) unit = candidate;
+      }
+      suspect = unit > prod.price * 3;
+    }
+    if (prod) items.push({ key: `t${n}`, line, label, productId: prod.id, qty, unitPrice: unit, total: Math.round(unit * qty * 100) / 100, suspect });
     else ignored.push(line);
   });
   return { store, items, ignored };

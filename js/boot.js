@@ -21,6 +21,17 @@
     if (app && !app.children.length) show('L’app ne s’est pas lancée. Recharge la page ou mets ton navigateur à jour.');
   }, 8000);
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+    var hadController = !!navigator.serviceWorker.controller;
+    var reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (!hadController || reloaded) return;
+      reloaded = true;
+      location.reload();
+    });
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').then(function (reg) {
+        document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') reg.update().catch(function () {}); });
+      }).catch(function () {});
+    });
   }
 })();

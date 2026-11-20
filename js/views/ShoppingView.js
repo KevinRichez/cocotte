@@ -9,6 +9,7 @@ import {
   listItemInfo, listTotal, euro, productPrice, estimateDlc, getProduct, productsForIng, unitPriceLabel, searchProducts, userStores,
 } from '../lib/engine.js';
 import { parseTicket, SAMPLE_TICKET } from '../lib/ticket.js';
+import { ticketTextFromFile, takeSharedTicket } from '../lib/ticketFile.js';
 import { toggleItem, checkAll, setItemQty, removeItem, addToList, finishShopping, applyTicket, swapItemProduct } from '../actions.js';
 
 export function ShoppingView() {
@@ -16,6 +17,12 @@ export function ShoppingView() {
   const tab = s.ui.shopTab || 'list';
   const setTabLocal = (v) => update((d) => { d.ui.shopTab = v; });
   const [ticketOpen, setTicketOpen] = useState(false);
+  const [sharedFile, setSharedFile] = useState(null);
+  useEffect(() => {
+    if (!new URLSearchParams(location.search).has('share')) return;
+    history.replaceState(null, '', location.pathname);
+    takeSharedTicket().then((f) => { if (f) { setSharedFile(f); setTicketOpen(true); } });
+  }, []);
   return html`<div class="screen">
     <header class="topbar">
       <h1 class="h1">Courses</h1>
@@ -29,7 +36,7 @@ export function ShoppingView() {
     ${tab === 'list' && html`<${ActiveList} s=${s} />`}
     ${tab === 'catalog' && html`<${CatalogTab} s=${s} />`}
     ${tab === 'history' && html`<${HistoryTab} s=${s} />`}
-    <${TicketSheet} open=${ticketOpen} onClose=${() => setTicketOpen(false)} s=${s} />
+    <${TicketSheet} open=${ticketOpen} file=${sharedFile} onClose=${() => { setTicketOpen(false); setSharedFile(null); }} s=${s} />
   </div>`;
 }
 
@@ -271,28 +278,54 @@ function Trip({ s, x, open, onToggle }) {
       </div>`;
 }
 
-function TicketSheet({ open, onClose, s }) {
+function TicketSheet({ open, onClose, s, file }) {
   const [raw, setRaw] = useState('');
   const [parsed, setParsed] = useState(null);
   const [dlcs, setDlcs] = useState({});
-  const close = () => { setRaw(''); setParsed(null); setDlcs({}); onClose(); };
-  const analyse = () => {
-    const res = parseTicket(raw.slice(0, 20000), userStores(s)[0]);
+  const [busy, setBusy] = useState(null);
+  const [error, setError] = useState(null);
+  const close = () => { setRaw(''); setParsed(null); setDlcs({}); setBusy(null); setError(null); onClose(); };
+  const analyse = (text = raw) => {
+    const res = parseTicket(text.slice(0, 20000), userStores(s)[0]);
     const est = {};
     for (const it of res.items) { const p = getProduct(s, it.productId); est[it.key] = estimateDlc(s, p.id, p.ing); }
     setDlcs(est); setParsed(res);
+    if (!res.items.length) setError('Aucun produit reconnu. Vérifie le texte ci-dessous ou réessaie avec une capture plus nette.');
   };
+  const readFile = async (f) => {
+    if (!f) return;
+    setError(null); setParsed(null); setBusy('Ouverture du ticket…');
+    try {
+      const text = await ticketTextFromFile(f, setBusy);
+      setRaw(text);
+      setBusy(null);
+      analyse(text);
+    } catch (e) { setBusy(null); setError(e.message || 'Lecture impossible'); }
+  };
+  useEffect(() => { if (open && file) readFile(file); }, [open, file]);
   const apply = () => { applyTicket(parsed.items, dlcs); close(); };
   const footer = parsed
     ? html`<div class="row"><button type="button" class="btn ghost" onClick=${() => setParsed(null)}>Retour</button>
         <button type="button" class="btn primary grow" disabled=${!parsed.items.length} onClick=${apply}><${Icon} name="check" size=${18} />Tout ranger (${parsed.items.length})</button></div>`
-    : html`<button type="button" class="btn primary block lg" disabled=${!raw.trim()} onClick=${analyse}><${Icon} name="sparkles" size=${18} />Analyser le ticket</button>`;
+    : html`<button type="button" class="btn primary block lg" disabled=${!raw.trim() || !!busy} onClick=${() => analyse()}><${Icon} name="sparkles" size=${18} />Analyser le ticket</button>`;
 
   return html`<${Sheet} open=${open} onClose=${close} title="Importer mon ticket" subtitle=${parsed ? `${STORES[parsed.store].name} · vérifie juste les dates` : 'Ticket dématérialisé de ton magasin'} footer=${footer}>
-    ${!parsed && html`<div>
-      <button type="button" class="btn outline sm" style="margin-bottom:12px" onClick=${() => setRaw(SAMPLE_TICKET)}><${Icon} name="clipboard" size=${16} />Coller un exemple</button>
-      <textarea class="field" maxlength="20000" placeholder="Colle ici le texte de ton ticket (appli du magasin, mail…)" value=${raw} onInput=${(e) => setRaw(e.currentTarget.value)}></textarea>
-      <p class="subtle" style="margin-top:8px">Les produits vont directement au frigo ou au placard, les prix réels remplacent les prix indicatifs et ta liste est cochée. Rien n’est envoyé en ligne.</p>
+    ${busy && html`<div class="ticket-busy"><span class="spinner"></span><span>${busy}</span></div>`}
+    ${error && html`<div class="card tint-amber small" style="margin-bottom:12px">${error}</div>`}
+    ${!parsed && !busy && html`<div>
+      <label class="btn primary block lg" style="cursor:pointer"><${Icon} name="upload" size=${18} />Importer le PDF ou une capture
+        <input type="file" accept="application/pdf,image/*" hidden onChange=${(e) => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; readFile(f); }} /></label>
+      <div class="howto">
+        <b>Depuis l’app Leclerc</b>
+        <span>Android : ouvre le ticket, touche Partager puis Cocotte (app installée sur l’écran d’accueil).</span>
+        <span>iPhone : Partager puis « Enregistrer dans Fichiers », ou fais une capture d’écran, puis importe-la ici.</span>
+      </div>
+      <details class="paste-box">
+        <summary>Ou coller le texte du ticket</summary>
+        <button type="button" class="btn outline sm" style="margin:10px 0" onClick=${() => setRaw(SAMPLE_TICKET)}><${Icon} name="clipboard" size=${16} />Coller un exemple</button>
+        <textarea class="field" maxlength="20000" placeholder="Colle ici le texte de ton ticket" value=${raw} onInput=${(e) => setRaw(e.currentTarget.value)}></textarea>
+      </details>
+      <p class="subtle" style="margin-top:10px">Le ticket est lu sur ton téléphone, rien n’est envoyé en ligne. Les produits sont rangés, les prix réels mis à jour et ta liste cochée.</p>
     </div>`}
     ${parsed && html`<div>
       <div class="list">${parsed.items.map((it) => {
@@ -301,7 +334,7 @@ function TicketSheet({ open, onClose, s }) {
         return html`<div class="list-item" key=${it.key} style="min-height:60px">
           <span style="font-size:20px">${ING[p.ing]?.emoji}</span>
           <div class="grow" style="min-width:0"><div class="small strong clamp2">${p.name}</div>
-            <div class="subtle xs">${where === 'frigo' ? '🧊 Frigo' : '📦 Placard'} · ${it.qty > 1 ? `${it.qty} × ` : ''}${euro(it.unitPrice)}</div></div>
+            <div class="subtle xs">${where === 'frigo' ? '🧊 Frigo' : '📦 Placard'} · ${it.qty > 1 ? `${it.qty} × ` : ''}${euro(it.unitPrice)}${it.suspect ? html` <span class="badge amber xs">prix à vérifier</span>` : ''}</div></div>
           <input type="date" class="field date-sm" value=${dlcs[it.key] || ''} onInput=${(e) => setDlcs({ ...dlcs, [it.key]: e.currentTarget.value })} />
         </div>`;
       })}</div>

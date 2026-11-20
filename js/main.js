@@ -37,5 +37,6 @@ function App() {
   </div>`;
 }
 
+if (new URLSearchParams(location.search).has('share')) setTab('shop', { shopTab: 'list' });
 render(html`<${App} />`, document.getElementById('app'));
 document.documentElement.classList.add('ready');
