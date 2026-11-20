@@ -1,7 +1,8 @@
 // Service worker FitMus : app shell en cache + cache runtime (CDN, polices).
-const VERSION = 'fitmus-v1';
+const VERSION = 'fitmus-v2';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css', 'icons/icon.svg',
+  'icons/icon-192.png', 'icons/apple-touch-icon.png',
   'js/main.js', 'js/store.js', 'js/actions.js', 'js/components/RecipeSheet.js', 'js/lib/h.js', 'js/lib/dates.js', 'js/lib/engine.js',
   'js/lib/ticket.js', 'js/lib/catalogProvider.js', 'js/lib/toast.js',
   'js/data/ingredients.js', 'js/data/catalog.js', 'js/data/recipes.js', 'js/data/seed.js',
