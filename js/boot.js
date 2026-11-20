@@ -1,12 +1,39 @@
 (function () {
+  function repair() {
+    var jobs = [];
+    if ('serviceWorker' in navigator) {
+      jobs.push(navigator.serviceWorker.getRegistrations().then(function (regs) {
+        return Promise.all(regs.map(function (r) { return r.unregister(); }));
+      }));
+    }
+    if (window.caches) {
+      jobs.push(caches.keys().then(function (keys) {
+        return Promise.all(keys.filter(function (k) { return k !== 'cocotte-share'; }).map(function (k) { return caches.delete(k); }));
+      }));
+    }
+    return Promise.all(jobs).catch(function () {}).then(function () {
+      location.replace(location.pathname);
+    });
+  }
+
+  if (/[?&]reset\b/.test(location.search)) { repair(); return; }
+
   function show(msg) {
     var el = document.getElementById('boot-error');
     if (!el) {
-      el = document.createElement('pre');
+      el = document.createElement('div');
       el.id = 'boot-error';
+      var pre = document.createElement('pre');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn primary block';
+      btn.textContent = 'Réparer et recharger (tes données sont gardées)';
+      btn.addEventListener('click', repair);
+      el.appendChild(pre);
+      el.appendChild(btn);
       document.body.appendChild(el);
     }
-    el.textContent = 'Oups, erreur de chargement :\n' + msg + '\n\n' + navigator.userAgent;
+    el.firstChild.textContent = 'Oups, erreur de chargement :\n' + msg + '\n\n' + navigator.userAgent;
   }
   window.addEventListener('error', function (e) {
     if (e.message) show(e.message + (e.filename ? '\n' + e.filename.split('/').pop() + ':' + e.lineno : ''));
@@ -18,8 +45,8 @@
   });
   setTimeout(function () {
     var app = document.getElementById('app');
-    if (app && !app.children.length) show('L’app ne s’est pas lancée. Recharge la page ou mets ton navigateur à jour.');
-  }, 8000);
+    if (app && !app.children.length) show('L’app ne s’est pas lancée.');
+  }, 6000);
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     var hadController = !!navigator.serviceWorker.controller;
     var reloaded = false;

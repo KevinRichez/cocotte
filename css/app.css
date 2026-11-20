@@ -470,3 +470,6 @@ textarea.steps-input { font-family: var(--font); font-size: 14px; min-height: 12
 .ignored-box summary { cursor: pointer; font-weight: 700; font-size: 13.5px; color: var(--ink-3); padding: 8px 2px; }
 
 .kv.excluded { color: var(--ink-3); font-size: 13px; }
+
+#boot-error pre { margin: 0 0 10px; white-space: pre-wrap; font: 12px/1.4 ui-monospace, monospace; }
+#boot-error .btn { font-family: var(--font); }
