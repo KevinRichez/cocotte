@@ -12,18 +12,35 @@ const ING_OPTIONS = Object.entries(CATEGORIES).map(([k, c]) => ({ k, c, rows: IN
 
 function offToCustom(o) {
   return {
-    name: o.name, brand: o.brand, barcode: o.barcode, size: o.size, ing: o.ing, nutri: o.nutri, image: o.image,
+    name: o.name, brand: o.brand, barcode: o.barcode, size: o.size, unit: o.unit, ing: o.ing, nutri: o.nutri, image: o.image,
     quantity: o.quantity, nutriscore: o.nutriscore, storage: ING[o.ing]?.storage || 'placard',
     aisle: ING[o.ing]?.aisle || 'Divers', emoji: ING[o.ing]?.emoji || '🛒', price: 0, store: null,
   };
 }
 
+const TIER_TONE = { eco: 'eco', bio: 'bio', nat: 'nat', vrac: 'vrac' };
+export function BrandPill({ p }) {
+  if (!p) return null;
+  const st = STORES[p.store];
+  if (p.custom || p.barcode) {
+    const label = [p.brand, p.quantity].filter(Boolean).join(' · ') || 'Produit perso';
+    return html`<span class="bline"><span class="bpill nat">${label}</span>${st && html`<span class="bstore"><i style=${{ background: st.color }}></i>${st.name}</span>`}</span>`;
+  }
+  const brand = p.tier === 'vrac' ? 'Rayon frais' : p.brand === st?.name ? 'Marque magasin' : p.brand;
+  return html`<span class="bline"><span class=${`bpill ${TIER_TONE[p.tier] || 'mdd'}`} style=${p.tier === 'mdd' ? { background: st.color } : null}>${brand}</span><span class="bstore"><i style=${{ background: st.color }}></i>${st.name}</span></span>`;
+}
+
+export function Thumb({ p, emoji, cls = 'pick-emoji' }) {
+  if (p?.image) return html`<img class=${cls === 'pick-emoji' ? 'pick-img' : 'thumb-img'} src=${p.image} alt="" loading="lazy" referrerpolicy="no-referrer" />`;
+  return html`<span class=${cls}>${emoji || p?.emoji || ING[p?.ing]?.emoji || '🛒'}</span>`;
+}
+
 export function ProductRow({ s, p, onClick, right }) {
   return html`<button type="button" class="pick-row" onClick=${onClick}>
-    ${p.image ? html`<img class="pick-img" src=${p.image} alt="" loading="lazy" referrerpolicy="no-referrer" />` : html`<span class="pick-emoji">${p.emoji || ING[p.ing]?.emoji || '🛒'}</span>`}
+    <${Thumb} p=${p} />
     <span class="pick-main">
       <span class="pick-name">${p.name}</span>
-      <span class="pick-sub">${p.custom || p.barcode ? [p.brand, p.quantity].filter(Boolean).join(' · ') || 'Produit perso' : storeLabel(p)}</span>
+      <${BrandPill} p=${p} />
     </span>
     ${right !== undefined ? right : (productPrice(s, p.id) > 0 && html`<span class="pick-price num">${euro(productPrice(s, p.id))}</span>`)}
   </button>`;
@@ -166,7 +183,7 @@ export function CreateProductSheet({ draft, s, onClose, onSaved }) {
     setF({ name: draft.name || '', brand: '', barcode: draft.barcode || '', size: '', ing: ing || '', store: userStores(s)[0], price: '', storage: ING[ing]?.storage || 'placard', nutri: null });
   }, [draft]);
   if (!draft || !f) return html`<${Sheet} open=${false} />`;
-  const set = (patch) => setF({ ...f, ...patch });
+  const set = (patch) => setF((cur) => ({ ...cur, ...patch }));
   const ing = ING[f.ing];
   const unit = ing?.unit || 'g';
   const save = () => {
@@ -185,7 +202,8 @@ export function CreateProductSheet({ draft, s, onClose, onSaved }) {
   return html`<${Sheet} open=${true} onClose=${onClose} title="Nouveau produit" subtitle="Il sera retenu pour la suite"
     footer=${html`<button type="button" class="btn primary block lg" onClick=${save}><${Icon} name="check" size=${18} />Créer le produit</button>`}>
     <div class="form">
-      <label class="label" for="np-name">Nom</label>
+      <p class="subtle xs" style="margin:0 2px 10px"><span class="req">*</span> champ obligatoire</p>
+      <label class="label" for="np-name">Nom <span class="req">*</span></label>
       <input id="np-name" class="field" value=${f.name} maxlength="80" placeholder="Ex : Steak haché 5 % Charal x2" onInput=${(e) => set({ name: e.currentTarget.value, ing: f.ing || guessIngredient(e.currentTarget.value) || '' })} />
       <div class="row" style="gap:10px;margin-top:12px">
         <div class="grow"><label class="label" for="np-brand">Marque (optionnel)</label>

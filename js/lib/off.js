@@ -17,14 +17,15 @@ function toProduct(p) {
     kcal: num(n['energy-kcal_100g']), prot: num(n.proteins_100g), carbs: num(n.carbohydrates_100g), sugars: num(n.sugars_100g),
     fat: num(n.fat_100g), satFat: num(n['saturated-fat_100g']), fiber: num(n.fiber_100g), salt: num(n.salt_100g),
   };
-  const ing = guessIngredient(`${name} ${(p.categories_tags || []).slice(-3).join(' ').replace(/[a-z]{2}:/g, ' ').replace(/-/g, ' ')}`);
-  const unit = ing ? ING[ing].unit : null;
-  let size = num(+p.product_quantity) || null;
-  if (unit === 'pc') size = null;
+  let ing = guessIngredient(`${name} ${(p.categories_tags || []).slice(-3).join(' ').replace(/[a-z]{2}:/g, ' ').replace(/-/g, ' ')}`, { packaged: true });
+  const qUnit = String(p.product_quantity_unit || '').toLowerCase();
+  const unit = qUnit === 'ml' || qUnit === 'cl' || qUnit === 'l' || /\d\s*(ml|cl|l)\b/i.test(p.quantity || '') ? 'ml' : 'g';
+  const size = num(+p.product_quantity) || null;
+  if (ing && ING[ing].unit === 'pc' && size) ing = null;
   const img = typeof p.image_front_small_url === 'string' && p.image_front_small_url.startsWith('https://images.openfoodfacts.org/') ? p.image_front_small_url : null;
   return {
     barcode: clean(p.code, 20), name, brand: clean(p.brands, 60).split(',')[0], quantity: clean(p.quantity, 30),
-    size, ing, nutri, image: img, nutriscore: /^[a-e]$/.test(p.nutriscore_grade) ? p.nutriscore_grade : null,
+    size, unit, ing, nutri, image: img, nutriscore: /^[a-e]$/.test(p.nutriscore_grade) ? p.nutriscore_grade : null,
   };
 }
 

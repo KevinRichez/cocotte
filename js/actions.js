@@ -1,6 +1,6 @@
 import { update, restore, getState } from './store.js';
 import { toast } from './lib/toast.js';
-import { MEALS, MEAL_KEYS } from './data/recipes.js';
+import { MEALS, MEAL_KEYS, RECIPE } from './data/recipes.js';
 import { ING, guessIngredient } from './data/ingredients.js';
 import { today, relDay } from './lib/dates.js';
 import {
@@ -11,12 +11,13 @@ import {
 const undoable = (prev, message) => toast(message, { action: 'Annuler', onAction: () => restore(prev) });
 const mealName = (m) => MEALS[m].label.toLowerCase();
 
-export function planRecipe(date, meal, recipeId, swaps = {}) {
+export function planRecipe(date, meal, recipeId, swaps = {}, servings = 1) {
   const prev = update((d) => {
     d.plan[date] = d.plan[date] || {};
-    d.plan[date][meal] = { recipeId, swaps, status: 'planned' };
+    d.plan[date][meal] = { recipeId, swaps, status: 'planned', ...(servings !== 1 ? { servings } : {}) };
   });
-  undoable(prev, `${getRecipe(getState(), recipeId)?.name} · ${relDay(date)}, ${mealName(meal)}`);
+  const x = servings !== 1 ? ` x${String(servings).replace('.', ',')}` : '';
+  undoable(prev, `${getRecipe(getState(), recipeId)?.name}${x} · ${relDay(date)}, ${mealName(meal)}`);
 }
 
 function eatInDraft(d, date, meal) {
@@ -24,7 +25,7 @@ function eatInDraft(d, date, meal) {
   if (!slot || slot.status !== 'planned') return false;
   slot.status = 'eaten';
   const r = getRecipe(d, slot.recipeId);
-  if (r) consumeLines(d, recipeLines(r, slot.swaps));
+  if (r) consumeLines(d, recipeLines(r, slot.swaps, slot.servings || 1));
   return true;
 }
 
@@ -69,7 +70,7 @@ export function resetSlot(date, meal) {
   update((d) => {
     const slot = d.plan[date]?.[meal];
     if (!slot) return;
-    if (slot.recipeId) d.plan[date][meal] = { recipeId: slot.recipeId, swaps: slot.swaps || {}, status: 'planned' };
+    if (slot.recipeId) d.plan[date][meal] = { recipeId: slot.recipeId, swaps: slot.swaps || {}, status: 'planned', ...(slot.servings ? { servings: slot.servings } : {}) };
     else delete d.plan[date][meal];
   });
 }
@@ -104,7 +105,7 @@ export function autofillWeek(dates, suggestFn) {
         const best = suggestFn(d, date, meal);
         if (!best) continue;
         d.plan[date] = d.plan[date] || {};
-        d.plan[date][meal] = { recipeId: best.id, swaps: {}, status: 'planned' };
+        d.plan[date][meal] = { recipeId: best.recipe.id, swaps: {}, status: 'planned', ...(best.servings !== 1 ? { servings: best.servings } : {}) };
         n++;
       }
     }
@@ -177,8 +178,9 @@ function stockFromProduct(d, productId, packs, dlc) {
   if (!p) return;
   const ing = p.ing && ING[p.ing] ? p.ing : null;
   addToInventory(d, {
-    ing, productId: p.id, name: ing ? p.name : p.name,
-    qty: ing && p.size ? p.size * packs : packs,
+    ing, productId: p.id, name: p.name,
+    qty: p.size && (ing || p.unit) ? p.size * packs : packs,
+    unit: !ing && p.size ? p.unit : null,
     dlc: dlc || estimateDlc(d, p.id, ing),
     location: p.storage || ING[ing]?.storage || 'placard',
     nutri: p.nutri,
@@ -236,8 +238,8 @@ export function saveCustomProduct(product) {
   return s.customProducts.find((p) => p.id === id || (product.barcode && p.barcode === product.barcode))?.id || id;
 }
 
-export function addStock({ productId, ing, name, qty, dlc, location, nutri }) {
-  const prev = update((d) => { addToInventory(d, { productId, ing, name, qty, dlc, location, nutri }); });
+export function addStock({ productId, ing, name, qty, unit, dlc, location, nutri }) {
+  const prev = update((d) => { addToInventory(d, { productId, ing, name, qty, unit, dlc, location, nutri }); });
   undoable(prev, `${name} rangé au ${location === 'frigo' ? 'frigo' : 'placard'}`);
 }
 export const updateStockItem = (id, patch) => update((d) => {
@@ -262,17 +264,24 @@ export const setProfile = (patch) => update((d) => { Object.assign(d.profile, pa
 export function saveRecipe(recipe) {
   const id = recipe.id || `perso_${uid()}`;
   const prev = update((d) => {
-    const r = { ...recipe, id, custom: true };
+    const r = { ...recipe, id, custom: true, override: !!RECIPE[id] };
     const i = d.customRecipes.findIndex((x) => x.id === id);
     if (i >= 0) d.customRecipes[i] = r; else d.customRecipes.unshift(r);
   });
   undoable(prev, recipe.id ? 'Recette mise à jour' : 'Recette créée');
   return id;
 }
-export function deleteRecipe(id) {
+export function deleteRecipe(id, { restoreOriginal } = {}) {
   const prev = update((d) => {
     d.customRecipes = d.customRecipes.filter((r) => r.id !== id);
-    delete d.prefs.recipe[id];
+    if (!restoreOriginal) delete d.prefs.recipe[id];
   });
-  undoable(prev, 'Recette supprimée');
+  undoable(prev, restoreOriginal ? 'Recette d’origine rétablie' : 'Recette supprimée');
+}
+export function setSlotServings(date, meal, servings) {
+  update((d) => {
+    const slot = d.plan[date]?.[meal];
+    if (!slot) return;
+    if (servings === 1) delete slot.servings; else slot.servings = servings;
+  });
 }

@@ -7,7 +7,7 @@ import { ING } from '../data/ingredients.js';
 import { today, addDays, mondayOf, weekDays, dayShort, dayNum, relDay, dlcInfo } from '../lib/dates.js';
 import {
   suggest, slotKcal, recipeLines, nutrition, kcalFmt, compileNeeds, isSlotPast, OUTSIDE_TAGS, urgentIngs,
-  isBlocked, nextFreeSlot, getRecipe, allRecipes, targets, dayTotals, norm,
+  isBlocked, nextFreeSlot, getRecipe, allRecipes, targets, dayTotals, norm, slotBudget,
 } from '../lib/engine.js';
 import {
   markEaten, markDayEaten, markOutside, skipSlot, resetSlot, clearSlot, planRecipe, placeDeferred, dropDeferred, generateList, autofillWeek,
@@ -56,7 +56,7 @@ export function WeekView() {
 
     <div class="section-title">
       <div class="h2">${relDay(selected)}</div>
-      ${futureDates.length > 0 && html`<button type="button" class="btn soft sm" onClick=${() => autofillWeek(futureDates, (d, date, meal) => suggest(d, { meal, date, n: 1 })[0]?.recipe)}>
+      ${futureDates.length > 0 && html`<button type="button" class="btn soft sm" onClick=${() => autofillWeek(futureDates, (d, date, meal) => (isSlotPast(date, meal) ? null : suggest(d, { meal, date, n: 1 })[0]))}>
         <${Icon} name="sparkles" size=${15} />Compléter</button>`}
     </div>
 
@@ -85,9 +85,11 @@ function DaySummary({ s, date }) {
   const { eaten, planned, protEaten, protPlanned } = dayTotals(s, date);
   return html`<div class="card pad-lg" style="margin-top:14px">
     <${KcalGauge} eaten=${eaten} planned=${planned} target=${tg.kcal} />
-    <div class="prot-line"><span>Protéines</span><b class="num">${Math.round(protEaten)} g</b><span class="subtle">· ${Math.round(protPlanned)} g avec le prévu · repère ${tg.prot} g</span></div>
+    <div class="prot-line"><span>Protéines</span><b class="num">${Math.round(protEaten)} g</b></div>
   </div>`;
 }
+
+const fmtServ = (v) => String(v).replace('.', ',');
 
 function shortDay(d) {
   const rel = relDay(d);
@@ -183,12 +185,12 @@ function SlotCard({ s, date, meal, onOpenRecipe, onOutside, onPick }) {
     }
     const sugg = suggest(s, { meal, date, n: 2 });
     return html`<div class="card slot">${head(html`<button type="button" class="btn soft sm" onClick=${onPick}>Plus d'idées</button>`)}
-      ${sugg.map(({ recipe, reasons, kcal }) => html`<button type="button" class="suggest" onClick=${() => planRecipe(date, meal, recipe.id)}>
+      ${sugg.map(({ recipe, reasons, kcal, servings }) => html`<button type="button" class="suggest" onClick=${() => planRecipe(date, meal, recipe.id, {}, servings)}>
         <span class="thumb sm" style=${{ background: recipe.color }}>${recipe.emoji}</span>
         <div class="grow" style="min-width:0">
           <div class="small strong clamp2">${recipe.name}</div>
           <div class="row" style="gap:6px;margin-top:2px">
-            <span class="subtle xs">${recipe.time} min · ${kcalFmt(kcal)} kcal</span>
+            <span class="subtle xs">${recipe.time} min · ${kcalFmt(kcal)} kcal${servings !== 1 ? ` · x${fmtServ(servings)}` : ''}</span>
             ${reasons.slice(0, 1).map((x) => html`<span class=${`badge ${x.tone} xs`}>${x.label}</span>`)}
           </div>
         </div>
@@ -210,6 +212,7 @@ function SlotCard({ s, date, meal, onOpenRecipe, onOutside, onPick }) {
         <span><${Icon} name="clock" size=${13} />${r.time} min</span>
         <span><${Icon} name="flame" size=${13} />${kcalFmt(k.kcal)} kcal</span>
         <span>${Math.round(k.prot)} g prot.</span>
+        ${slot.servings && slot.servings !== 1 && html`<span>x${fmtServ(slot.servings)} portion</span>`}
         ${Object.values(slot.swaps || {}).some(Boolean) && html`<span><${Icon} name="swap" size=${12} />adapté</span>`}
       </div>
     </div>
@@ -248,7 +251,7 @@ function SlotCard({ s, date, meal, onOpenRecipe, onOutside, onPick }) {
   }
 
   return html`<div class="card slot">${head(html`<div class="row" style="gap:4px">
-      <button type="button" class="icon-btn sm plain" aria-label="Changer de recette" onClick=${onPick}><${Icon} name="edit" size=${16} /></button>
+      <button type="button" class="icon-btn sm plain" aria-label="Changer de recette" onClick=${onPick}><${Icon} name="swap" size=${16} /></button>
       <button type="button" class="icon-btn sm plain" aria-label="Libérer le créneau" onClick=${() => clearSlot(date, meal)}><${Icon} name="x" size=${16} /></button>
     </div>`)}
     ${mealRow}
@@ -289,20 +292,21 @@ function PickerSheet({ ctx, s, onClose, onDetails }) {
   const sugg = suggest(s, { meal: ctx.meal, date: ctx.date, n: 4 });
   const nq = norm(q);
   const all = allRecipes(s).filter((r) => r.meals.includes(ctx.meal) && !isBlocked(s, r) && (!nq || norm(r.name).includes(nq)));
-  const pick = (id) => { planRecipe(ctx.date, ctx.meal, id); setQ(''); onClose(); };
-  const row = (r, reasons = []) => html`<div class="suggest" key=${r.id}>
+  const pick = (id, servings = 1) => { planRecipe(ctx.date, ctx.meal, id, {}, servings); setQ(''); onClose(); };
+  const row = (r, reasons = [], servings = 1) => html`<div class="suggest" key=${r.id}>
     <button type="button" class="row grow" style="text-align:left;gap:10px;min-width:0" onClick=${() => onDetails(r.id, ctx)}>
       <span class="thumb sm" style=${{ background: r.color }}>${r.emoji}</span>
       <div class="grow" style="min-width:0">
         <div class="small strong clamp2">${r.name}</div>
-        <div class="row" style="gap:6px;margin-top:2px"><span class="subtle xs">${r.time} min · ${kcalFmt(nutrition(recipeLines(r)).kcal)} kcal</span>
+        <div class="row" style="gap:6px;margin-top:2px"><span class="subtle xs">${r.time} min · ${kcalFmt(nutrition(recipeLines(r, {}, servings), s).kcal)} kcal${servings !== 1 ? ` · x${fmtServ(servings)}` : ''}</span>
           ${reasons.slice(0, 1).map((x) => html`<span class=${`badge ${x.tone} xs`}>${x.label}</span>`)}</div>
       </div>
     </button>
-    <button type="button" class="icon-btn sm add" aria-label="Choisir" onClick=${() => pick(r.id)}><${Icon} name="plus" size=${16} /></button>
+    <button type="button" class="icon-btn sm add" aria-label="Choisir" onClick=${() => pick(r.id, servings)}><${Icon} name="plus" size=${16} /></button>
   </div>`;
-  return html`<${Sheet} open=${true} onClose=${() => { setQ(''); onClose(); }} title=${`${MEALS[ctx.meal].emoji} ${MEALS[ctx.meal].label}`} subtitle=${relDay(ctx.date)}>
-    ${!nq && html`<div class="label">Suggestions pour toi</div>${sugg.map((x) => row(x.recipe, x.reasons))}`}
+  const { remaining } = slotBudget(s, ctx.date, ctx.meal);
+  return html`<${Sheet} open=${true} onClose=${() => { setQ(''); onClose(); }} title=${`${MEALS[ctx.meal].emoji} ${MEALS[ctx.meal].label}`} subtitle=${`${relDay(ctx.date)} · reste ~${kcalFmt(remaining)} kcal pour atteindre l'objectif`}>
+    ${!nq && html`<div class="label">Suggestions pour atteindre ton objectif</div>${sugg.map((x) => row(x.recipe, x.reasons, x.servings))}`}
     <div class="search" style="margin:16px 0 10px"><${Icon} name="search" size=${18} />
       <input class="field" type="search" placeholder="Chercher une recette" value=${q} onInput=${(e) => setQ(e.currentTarget.value)} /></div>
     ${all.map((r) => row(r))}

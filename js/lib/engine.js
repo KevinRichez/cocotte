@@ -25,7 +25,8 @@ export function targets(p) {
   const tdee = bmr * (+p.activity || 1.4);
   const goal = +p.weightGoal || w;
   const dir = goal > w + 0.4 ? 'gain' : goal < w - 0.4 ? 'lose' : 'maintain';
-  const step = p.pace === 'actif' ? 500 : 300;
+  const gap = Math.abs(goal - w);
+  const step = Math.min(700, Math.max(150, 150 + gap * 40)) * (p.pace === 'actif' ? 1.3 : 1);
   let kcal = tdee + (dir === 'gain' ? step : dir === 'lose' ? -step : 0);
   if (dir === 'lose') kcal = Math.max(kcal, bmr * 1.1, 1300);
   const prot = Math.round(w * (dir === 'maintain' ? 1.4 : 1.8));
@@ -52,7 +53,7 @@ export function defaultProductFor(s, ing) {
   const pref = s.brandPrefs?.[ing];
   if (pref && getProduct(s, pref)) return pref;
   const stores = userStores(s);
-  const pool = bankForIng(ing).filter((p) => p.tier !== 'bio' && p.tier !== 'nat');
+  const pool = bankForIng(ing).filter((p) => p.tier !== 'bio' && p.tier !== 'nat' && !p.id.includes('.s'));
   for (const st of stores) {
     const inStore = pool.filter((p) => p.store === st).sort((a, b) => a.price / a.size - b.price / b.size);
     if (inStore.length) return inStore[0].id;
@@ -86,7 +87,7 @@ export function searchProducts(s, query, { limit = 40 } = {}) {
   for (const p of bank().list) {
     if (!stores.includes(p.store)) continue;
     const sc = score(p, p.search);
-    if (sc >= 0) out.push({ p, sc: sc - stores.indexOf(p.store) * 0.3 - (p.tier === 'bio' || p.tier === 'nat' ? 0.4 : 0) });
+    if (sc >= 0) out.push({ p, sc: sc - stores.indexOf(p.store) * 0.3 - (p.tier === 'bio' || p.tier === 'nat' ? 0.4 : 0) - (p.id.includes('.s') ? 0.2 : 0) });
   }
   return out.sort((a, b) => b.sc - a.sc || a.p.name.localeCompare(b.p.name)).slice(0, limit).map((x) => x.p);
 }
@@ -97,8 +98,12 @@ export function searchIngredients(query, { limit = 30 } = {}) {
   return INGREDIENTS.filter((i) => i.keys.includes(q)).sort((a, b) => (norm(a.name).startsWith(q) ? -1 : 0) - (norm(b.name).startsWith(q) ? -1 : 0)).slice(0, limit);
 }
 
-export const allRecipes = (s) => (s.customRecipes.length ? [...s.customRecipes, ...RECIPES] : RECIPES);
-export const getRecipe = (s, id) => RECIPE[id] || s.customRecipes.find((r) => r.id === id) || null;
+export function allRecipes(s) {
+  if (!s.customRecipes.length) return RECIPES;
+  const own = new Set(s.customRecipes.map((r) => r.id));
+  return [...s.customRecipes, ...RECIPES.filter((r) => !own.has(r.id))];
+}
+export const getRecipe = (s, id) => s.customRecipes.find((r) => r.id === id) || RECIPE[id] || null;
 
 const roundQty = (q, unit) => (unit === 'pc' ? Math.round(q * 2) / 2 : Math.round(q));
 export function recipeLines(recipe, swaps = {}, servings = 1) {
@@ -112,19 +117,40 @@ export function recipeLines(recipe, swaps = {}, servings = 1) {
     return { ...line, qty: roundQty(line.qty * servings, ING[line.ing].unit), idx };
   });
 }
-export function nutrition(lines) {
+const nutriCache = new WeakMap();
+export function ingNutri(s, id) {
+  const ing = ING[id];
+  if (!s || ing.unit === 'pc') return ing;
+  let map = nutriCache.get(s.inventory);
+  if (!map) {
+    map = {};
+    const lots = [...s.inventory].sort((a, b) => (a.addedAt || '').localeCompare(b.addedAt || ''));
+    for (const lot of lots) {
+      const n = lot.nutri || getProduct(s, lot.productId)?.nutri;
+      if (lot.ing && n && n.kcal != null) map[lot.ing] = { kcal: n.kcal, prot: n.prot ?? ING[lot.ing].prot };
+    }
+    for (const [ingId, pid] of Object.entries(s.brandPrefs || {})) {
+      const n = getProduct(s, pid)?.nutri;
+      if (!map[ingId] && n && n.kcal != null) map[ingId] = { kcal: n.kcal, prot: n.prot ?? ING[ingId].prot };
+    }
+    nutriCache.set(s.inventory, map);
+  }
+  return map[id] || ing;
+}
+export function nutrition(lines, s) {
   let kcal = 0, prot = 0;
   for (const l of lines) {
     const ing = ING[l.ing];
+    const n = ingNutri(s, l.ing);
     const f = ing.unit === 'pc' ? l.qty : l.qty / 100;
-    kcal += ing.kcal * f; prot += ing.prot * f;
+    kcal += n.kcal * f; prot += n.prot * f;
   }
   return { kcal, prot };
 }
 export const linesCost = (s, lines) => lines.reduce((sum, l) => sum + (ING[l.ing].staple ? 0 : unitCost(s, l.ing) * l.qty), 0);
 export function recipeStats(s, recipe, swaps) {
   const lines = recipeLines(recipe, swaps);
-  const { kcal, prot } = nutrition(lines);
+  const { kcal, prot } = nutrition(lines, s);
   return { kcal, prot, cost: linesCost(s, lines), lines };
 }
 export const budgetLevel = (cost) => (cost < 1.5 ? 1 : cost < 2.5 ? 2 : 3);
@@ -163,11 +189,12 @@ export function urgentIngs(s) {
   return [...new Set(s.inventory.filter((x) => { const d = dlcInfo(x.dlc); return d.days >= 0 && d.days <= 2; }).map((x) => x.ing).filter(Boolean))];
 }
 
-export function addToInventory(draft, { ing, qty, name, dlc, location, productId, nutri }) {
+export function addToInventory(draft, { ing, qty, name, dlc, location, productId, nutri, unit }) {
   const existing = draft.inventory.find((x) => ing && x.ing === ing && x.dlc === dlc && x.location === location && x.productId === productId);
   if (existing) { existing.qty += qty; return existing; }
   const item = { id: uid(), ing: ing || null, name: name || ING[ing]?.name || 'Produit', qty, dlc: dlc || null, location: location || ING[ing]?.storage || 'placard', productId: productId || null, addedAt: today() };
   if (nutri) item.nutri = nutri;
+  if (!ing && unit) item.unit = unit;
   draft.inventory.push(item);
   return item;
 }
@@ -215,8 +242,32 @@ export function nextFreeSlot(s, recipe, { after } = {}) {
 }
 
 const MEAL_SHARE = { petitdej: 0.25, dej: 0.32, collation: 0.13, diner: 0.3 };
-export function suggest(s, { meal, date, n = 3, exclude = [] }) {
+
+export function slotBudget(s, date, meal) {
   const t = targets(s.profile);
+  const plan = s.plan[date] || {};
+  let used = 0, shares = 0;
+  for (const m of MEAL_KEYS) {
+    const slot = plan[m];
+    if (m === meal) { shares += MEAL_SHARE[m]; continue; }
+    if (slot) used += slotKcal(s, slot).kcal;
+    else if (!isSlotPast(date, m)) shares += MEAL_SHARE[m];
+  }
+  const remaining = Math.max(0, t.kcal - used);
+  return { budget: shares ? remaining * (MEAL_SHARE[meal] / shares) : remaining, remaining, dir: t.dir };
+}
+
+export function servingsFor(kcal, budget, dir) {
+  if (!kcal || !budget) return 1;
+  const raw = budget / kcal;
+  const max = dir === 'lose' ? 1 : 2;
+  const min = dir === 'gain' ? 1 : 0.75;
+  return Math.min(max, Math.max(min, Math.round(raw * 4) / 4));
+}
+
+export function suggest(s, { meal, date, n = 3, exclude = [], budget: forced }) {
+  const t = targets(s.profile);
+  const target = meal ? (forced ?? (date ? slotBudget(s, date, meal).budget : t.kcal * MEAL_SHARE[meal])) : null;
   const weekIds = weekRecipeIds(s, mondayOf(date || today()));
   const urgent = urgentIngs(s);
   return allRecipes(s)
@@ -224,7 +275,7 @@ export function suggest(s, { meal, date, n = 3, exclude = [] }) {
     .map((r) => {
       const lines = recipeLines(r);
       const ings = lines.map((l) => l.ing);
-      const { kcal, prot } = nutrition(lines);
+      const base = nutrition(lines, s);
       const match = stockMatch(s, lines);
       const reasons = [];
       let score = match.ratio * 3;
@@ -240,16 +291,17 @@ export function suggest(s, { meal, date, n = 3, exclude = [] }) {
       if (ref.length >= 2 && rt !== 'refuge') reasons.push({ label: 'Aliments refuges', tone: 'sky' });
       const defi = ings.find((x) => ingTier(s, x) === 'doux');
       if (defi) { score += 0.4; reasons.push({ label: `Défi doux : ${ING[defi].name.toLowerCase()}`, tone: 'lav' }); }
-      if (meal) {
-        const budget = t.kcal * MEAL_SHARE[meal];
-        const gap = (kcal - budget) / budget;
-        if (t.dir === 'gain') score += Math.min(gap, 0.6) * 2 + (prot / Math.max(kcal, 1)) * 20;
-        else if (t.dir === 'lose') score += -Math.abs(Math.max(gap, -0.2)) * 3 + (prot / Math.max(kcal, 1)) * 40;
-        else score -= Math.abs(gap) * 1.5;
+      let servings = 1;
+      if (target) {
+        servings = servingsFor(base.kcal, target, t.dir);
+        const gap = Math.abs(base.kcal * servings - target) / Math.max(target, 200);
+        score += 3 - Math.min(gap, 1.5) * 4;
+        score += (base.prot / Math.max(base.kcal, 1)) * (t.dir === 'lose' ? 40 : 15);
+        if (servings > 1) score -= (servings - 1) * 0.8;
       }
       score -= weekIds.filter((id) => id === r.id).length * 2.2;
       score += r.time <= 15 ? 0.4 : 0;
-      return { recipe: r, score, reasons: reasons.slice(0, 2), match, kcal, prot };
+      return { recipe: r, score, reasons: reasons.slice(0, 2), match, servings, kcal: base.kcal * servings, prot: base.prot * servings };
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, n);
@@ -262,18 +314,23 @@ export function compileNeeds(s, dates) {
       const slot = s.plan[date]?.[meal];
       const r = slot && getRecipe(s, slot.recipeId);
       if (!slot || slot.status !== 'planned' || !r) continue;
-      for (const l of recipeLines(r, slot.swaps)) need[l.ing] = (need[l.ing] || 0) + l.qty;
+      for (const l of recipeLines(r, slot.swaps, slot.servings || 1)) need[l.ing] = (need[l.ing] || 0) + l.qty;
     }
   }
   const out = [];
   for (const [ing, qty] of Object.entries(need)) {
     const have = stockQty(s, ing);
     const pid = defaultProductFor(s, ing);
-    const prod = getProduct(s, pid);
+    let prod = getProduct(s, pid);
     if (!prod) continue;
     if (ING[ing].staple) { if (have <= 0) out.push({ ing, productId: pid, packs: 1, missing: 0 }); continue; }
     const missing = qty - have;
-    if (missing > 0.01) out.push({ ing, productId: pid, packs: Math.max(1, Math.ceil(missing / (prod.size || 1))), missing });
+    if (missing <= 0.01) continue;
+    if (!prod.custom) {
+      const sib = bankForIng(ing).filter((p) => p.store === prod.store && p.tier === prod.tier && p.brand === prod.brand).sort((a, b) => a.size - b.size);
+      prod = sib.find((p) => p.size >= missing) || sib[sib.length - 1] || prod;
+    }
+    out.push({ ing, productId: prod.id, packs: Math.max(1, Math.ceil(missing / (prod.size || 1))), missing });
   }
   return out;
 }
@@ -314,7 +371,7 @@ export function slotKcal(s, slot) {
     return { kcal, prot: kcal * 0.04 };
   }
   const r = getRecipe(s, slot.recipeId);
-  return r ? nutrition(recipeLines(r, slot.swaps)) : { kcal: 0, prot: 0 };
+  return r ? nutrition(recipeLines(r, slot.swaps, slot.servings || 1), s) : { kcal: 0, prot: 0 };
 }
 
 export function dayTotals(s, date) {

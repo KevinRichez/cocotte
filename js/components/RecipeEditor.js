@@ -7,7 +7,12 @@ import { searchIngredients, nutrition, kcalFmt } from '../lib/engine.js';
 import { saveRecipe } from '../actions.js';
 import { toast } from '../lib/toast.js';
 
-const EMOJIS = ['🍝', '🍛', '🥘', '🍲', '🥗', '🍳', '🥩', '🍗', '🐟', '🌯', '🍔', '🍕', '🥪', '🥣', '🥞', '🍰', '🍪', '🍫', '🍌', '🥑'];
+const EMOJIS = ['🍝', '🍛', '🥘', '🍲', '🥗', '🍳', '🥩', '🍗', '🍖', '🥓', '🐟', '🍣', '🦐', '🌯', '🌮', '🥙', '🍔', '🍟', '🍕', '🥪', '🌭', '🥟', '🍜', '🍚', '🥔', '🍠', '🥦', '🥕', '🍅', '🫑', '🍄', '🧀', '🥚', '🥣', '🥞', '🧇', '🥐', '🍞', '🥯', '🍰', '🧁', '🍪', '🍫', '🍮', '🍦', '🍌', '🍎', '🍓', '🫐', '🥑', '🥜', '🥛', '☕', '🥤', '🧃', '🌶️', '🫘', '🥥', '🍯', '🔥'];
+const firstGrapheme = (v) => {
+  const t = (v || '').trim();
+  if (!t) return '';
+  try { return [...new Intl.Segmenter('fr', { granularity: 'grapheme' }).segment(t)].pop()?.segment || ''; } catch { return [...t].slice(-2).join(''); }
+};
 const COLORS = ['#F6E9D7', '#F4DED6', '#E3EDD5', '#DDEBF1', '#EDE3F1', '#F7E3BF', '#F8DCD3', '#EAF0E2'];
 
 const stepFor = (ing) => (ing.unit === 'pc' ? 0.5 : ing.unit === 'ml' ? 25 : 10);
@@ -20,11 +25,11 @@ export function RecipeEditor({ open, recipe, onClose, onSaved }) {
   useEffect(() => {
     if (!open) return;
     setQ('');
-    setF(recipe ? { ...recipe, steps: (recipe.steps || []).join('\n'), ingredients: recipe.ingredients.map((x) => ({ ...x })) }
-      : { name: '', emoji: '🍲', color: COLORS[0], time: 15, meals: ['dej', 'diner'], equipment: [], ingredients: [], steps: '' });
+    setF(recipe ? { ...recipe, prep: recipe.prep ?? recipe.time, cook: recipe.cook ?? 0, steps: (recipe.steps || []).join('\n'), ingredients: recipe.ingredients.map((x) => ({ ...x })), equipment: recipe.equipment.filter((e) => e !== 'aucun') }
+      : { name: '', emoji: '🍲', color: COLORS[0], prep: 10, cook: 10, meals: ['dej', 'diner'], equipment: [], ingredients: [], steps: '' });
   }, [open]);
   if (!open || !f) return html`<${Sheet} open=${false} />`;
-  const set = (patch) => setF({ ...f, ...patch });
+  const set = (patch) => setF((cur) => ({ ...cur, ...patch }));
   const toggle = (key, v) => set({ [key]: f[key].includes(v) ? f[key].filter((x) => x !== v) : [...f[key], v] });
   const results = q.trim() ? searchIngredients(q, { limit: 8 }).filter((i) => !f.ingredients.some((x) => x.ing === i.id)) : [];
   const addIng = (ing) => { set({ ingredients: [...f.ingredients, { ing: ing.id, qty: defaultQty(ing) }] }); setQ(''); };
@@ -37,7 +42,7 @@ export function RecipeEditor({ open, recipe, onClose, onSaved }) {
     if (!f.ingredients.length) { toast('Ajoute au moins un ingrédient'); return; }
     if (!f.meals.length) { toast('Choisis au moins un moment'); return; }
     const id = saveRecipe({
-      id: recipe?.id, name, emoji: f.emoji, color: f.color, time: Math.max(1, Math.min(240, Math.round(f.time))),
+      id: recipe?.id, name, emoji: f.emoji || '🍲', color: f.color, prep: Math.round(f.prep), cook: Math.round(f.cook), time: Math.max(1, Math.min(480, Math.round(f.prep + f.cook))),
       meals: f.meals, equipment: f.equipment.length ? f.equipment : ['aucun'], ingredients: f.ingredients,
       steps: f.steps.split('\n').map((x) => x.trim().slice(0, 240)).filter(Boolean).slice(0, 20),
     });
@@ -47,23 +52,34 @@ export function RecipeEditor({ open, recipe, onClose, onSaved }) {
 
   return html`<${Sheet} open=${true} onClose=${onClose} title=${recipe ? 'Modifier la recette' : 'Nouvelle recette'} subtitle=${f.ingredients.length ? `${kcalFmt(kcal)} kcal par portion` : 'Quantités pour 1 portion'}
     footer=${html`<button type="button" class="btn primary block lg" onClick=${save}><${Icon} name="check" size=${18} />Enregistrer</button>`}>
-    <label class="label" for="re-name">Nom</label>
-    <input id="re-name" class="field" maxlength="70" placeholder="Ex : Bowl poulet teriyaki" value=${f.name} onInput=${(e) => set({ name: e.currentTarget.value })} />
+    <p class="subtle xs" style="margin:0 2px 10px"><span class="req">*</span> champs obligatoires</p>
+    <label class="label" for="re-name">Nom <span class="req">*</span></label>
+    <input id="re-name" class="field" maxlength="70" required placeholder="Ex : Bowl poulet teriyaki" value=${f.name} onInput=${(e) => set({ name: e.currentTarget.value })} />
 
     <div class="label" style="margin-top:14px">Icône</div>
-    <div class="emoji-grid">${EMOJIS.map((em) => html`<button type="button" class=${`emoji-btn ${f.emoji === em ? 'on' : ''}`} style=${{ background: f.emoji === em ? f.color : '' }} onClick=${() => set({ emoji: em })}>${em}</button>`)}</div>
-    <div class="row" style="gap:8px;margin-top:8px">${COLORS.map((c) => html`<button type="button" class=${`color-dot ${f.color === c ? 'on' : ''}`} style=${{ background: c }} aria-label="Couleur" onClick=${() => set({ color: c })}></button>`)}</div>
+    <div class="row" style="gap:10px;margin-bottom:10px">
+      <span class="emoji-preview" style=${{ background: f.color }}>${f.emoji || '🍲'}</span>
+      <div class="grow"><label class="label" for="re-emoji" style="margin-bottom:4px">Ou tape un emoji avec ton clavier</label>
+        <input id="re-emoji" class="field" style="height:42px" inputmode="text" placeholder="😋" value="" onInput=${(e) => { const g = firstGrapheme(e.currentTarget.value); if (g && /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(g)) set({ emoji: g }); e.currentTarget.value = ''; }} /></div>
+    </div>
+    <div class="emoji-grid">${EMOJIS.map((em) => html`<button type="button" class=${`emoji-btn ${f.emoji === em ? 'on' : ''}`} onClick=${() => set({ emoji: em })}>${em}</button>`)}</div>
+    <div class="row" style="gap:8px;margin-top:10px">${COLORS.map((c) => html`<button type="button" class=${`color-dot ${f.color === c ? 'on' : ''}`} style=${{ background: c }} aria-label="Couleur" onClick=${() => set({ color: c })}></button>`)}</div>
 
-    <div class="row between" style="margin-top:14px"><span class="label" style="margin:0">Temps</span>
-      <${Stepper} value=${f.time} min=${1} max=${240} step=${5} onChange=${(v) => set({ time: v })} format=${(v) => `${v} min`} /></div>
+    <div class="card flat" style="margin-top:14px">
+      <div class="row between"><b class="small">Préparation</b>
+        <${Stepper} value=${f.prep} min=${0} max=${240} step=${5} onChange=${(v) => set({ prep: v })} format=${(v) => `${v} min`} /></div>
+      <div class="hr"></div>
+      <div class="row between"><b class="small">Cuisson</b>
+        <${Stepper} value=${f.cook} min=${0} max=${240} step=${5} onChange=${(v) => set({ cook: v })} format=${(v) => `${v} min`} /></div>
+    </div>
 
-    <div class="label" style="margin-top:14px">Moments</div>
+    <div class="label" style="margin-top:14px">Moments <span class="req">*</span></div>
     <div class="chips">${MEAL_KEYS.map((m) => html`<${Chip} sm active=${f.meals.includes(m)} onClick=${() => toggle('meals', m)}>${MEALS[m].emoji} ${MEALS[m].label}</${Chip}>`)}</div>
 
     <div class="label" style="margin-top:14px">Matériel</div>
     <div class="chips">${COOKING_EQUIPMENT.filter((k) => k !== 'congelateur').map((k) => html`<${Chip} sm active=${f.equipment.includes(k)} onClick=${() => toggle('equipment', k)}>${EQUIPMENT[k].emoji} ${EQUIPMENT[k].label}</${Chip}>`)}</div>
 
-    <div class="label" style="margin-top:14px">Ingrédients</div>
+    <div class="label" style="margin-top:14px">Ingrédients <span class="req">*</span></div>
     ${f.ingredients.length > 0 && html`<div class="list" style="margin-bottom:10px">${f.ingredients.map((x, k) => {
       const ing = ING[x.ing];
       if (!ing) return null;

@@ -26,7 +26,7 @@ export const AISLES = [
 ];
 
 const norm = (x) => x.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-const round = (n) => Math.max(0.29, Math.round(n * 100) / 100 - 0.01);
+const round = (n) => Math.max(0.29, (Math.round(n * 100) - 1) / 100);
 
 export function packLabel(ing, size) {
   if (ing.unit === 'g') return size >= 1000 ? `${(size / 1000).toLocaleString('fr-FR')} kg` : `${size} g`;
@@ -36,17 +36,33 @@ export function packLabel(ing, size) {
 
 let cache = null;
 
+const VARIANT_CATS = ['viande', 'poisson', 'laitier', 'fromage', 'feculent'];
+function sizesFor(ing) {
+  if (ing.sizes) return ing.sizes;
+  const p = ing.pack.size;
+  if (ing.unit === 'pc') return ing.fresh ? [1, p] : p >= 4 && VARIANT_CATS.includes(ing.cat) ? [Math.ceil(p / 2), p, p * 2] : [p];
+  if (ing.fresh) return p >= 1000 ? [p / 2, p] : [p];
+  if (VARIANT_CATS.includes(ing.cat) && !ing.staple) return p <= 500 ? [p, p * 2] : [p / 2, p];
+  return [p];
+}
+
 function build() {
   const list = [];
   for (const ing of INGREDIENTS) {
-    const base = ing.pack.price;
-    for (const [sid, st] of Object.entries(STORES)) {
-      const tiers = ing.fresh ? ['vrac', 'bio'] : ['mdd', st.eco && 'eco', ing.cat !== 'epice' && 'bio'].filter(Boolean);
-      for (const tier of tiers) {
-        const brand = tier === 'vrac' ? st.name : st[tier];
-        list.push(make(ing, sid, tier, brand, base * st.factor * TIERS[tier].factor));
+    const unitPrice = ing.pack.price / ing.pack.size;
+    const sizes = sizesFor(ing);
+    for (const size of sizes) {
+      const scale = size < ing.pack.size ? 1.1 : size > ing.pack.size ? 0.93 : 1;
+      const base = unitPrice * size * scale;
+      const suffix = size === ing.pack.size ? '' : `.s${size}`;
+      for (const [sid, st] of Object.entries(STORES)) {
+        const tiers = ing.fresh ? ['vrac', 'bio'] : ['mdd', st.eco && 'eco', ing.cat !== 'epice' && 'bio'].filter(Boolean);
+        for (const tier of tiers) {
+          const brand = tier === 'vrac' ? st.name : st[tier];
+          list.push(make(ing, sid, tier, brand, base * st.factor * TIERS[tier].factor, size, suffix));
+        }
+        ing.nat.forEach((brand, k) => list.push(make(ing, sid, k ? `nat${k}` : 'nat', brand, base * st.factor * (TIERS.nat.factor + k * 0.08), size, suffix)));
       }
-      ing.nat.forEach((brand, k) => list.push(make(ing, sid, k ? `nat${k}` : 'nat', brand, base * st.factor * (TIERS.nat.factor + k * 0.08))));
     }
   }
   const byId = Object.fromEntries(list.map((p) => [p.id, p]));
@@ -55,12 +71,12 @@ function build() {
   return { list, byId, byIng };
 }
 
-function make(ing, store, tier, brand, price) {
+function make(ing, store, tier, brand, price, size, suffix) {
   const tierKey = tier.startsWith('nat') ? 'nat' : tier;
-  const name = `${ing.name} ${packLabel(ing, ing.pack.size)}`;
+  const name = ing.unit === 'pc' && size === 1 ? `${ing.name} à l'unité` : `${ing.name} ${packLabel(ing, size)}`;
   return {
-    id: `${store}.${ing.id}.${tier}`, ing: ing.id, store, tier: tierKey, brand, name,
-    size: ing.pack.size, price: round(price), aisle: ing.aisle, emoji: ing.emoji,
+    id: `${store}.${ing.id}.${tier}${suffix}`, ing: ing.id, store, tier: tierKey, brand, name,
+    size, price: round(price), aisle: ing.aisle, emoji: ing.emoji,
     search: norm(`${name} ${brand} ${ing.keys}`),
   };
 }
@@ -90,7 +106,7 @@ export function storeLabel(p) {
   const st = STORES[p.store]?.name;
   if (p.custom) return [st, p.brand].filter(Boolean).join(' · ') || 'Produit perso';
   if (p.tier === 'vrac') return `${st} · rayon frais`;
-  if (p.tier === 'eco') return `${st} · ${p.brand} · premier prix`;
+  if (p.tier === 'eco') return `${st} · ${p.brand}`;
   return `${st} · ${p.brand && p.brand !== st ? p.brand : 'marque magasin'}`;
 }
 

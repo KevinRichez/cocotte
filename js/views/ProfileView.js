@@ -1,7 +1,7 @@
 import { html, useState, useMemo } from '../lib/h.js';
 import { useStore, update, getState, restore } from '../store.js';
 import { Icon, Chip, Badge, Seg, Sheet, Swipeable, Stepper, Empty, TierPicker } from '../components/ui.js';
-import { ProductSearch, NutritionTable } from '../components/ProductSearch.js';
+import { ProductSearch, NutritionTable, Thumb, BrandPill } from '../components/ProductSearch.js';
 import { ING, INGREDIENTS, CATEGORIES, fmtQty } from '../data/ingredients.js';
 import { STORES, storeLabel, packLabel } from '../data/products.js';
 import { EQUIPMENT, COOKING_EQUIPMENT } from '../data/recipes.js';
@@ -53,7 +53,7 @@ function StockTab({ s }) {
 
   const group = (title, icon, rows) => rows.length > 0 && html`<div>
     <div class="aisle-title"><span class="row" style="gap:6px"><${Icon} name=${icon} size=${14} />${title}</span><span>${rows.length}</span></div>
-    <div class="list">${rows.map((x) => html`<${StockRow} key=${x.id} x=${x} onEdit=${() => setEdit(x.id)} />`)}</div>
+    <div class="list">${rows.map((x) => html`<${StockRow} key=${x.id} s=${s} x=${x} onEdit=${() => setEdit(x.id)} />`)}</div>
   </div>`;
 
   return html`<div>
@@ -80,15 +80,17 @@ function StockTab({ s }) {
   </div>`;
 }
 
-function StockRow({ x, onEdit }) {
+const lotQty = (x) => (ING[x.ing] ? fmtQty(x.qty, ING[x.ing].unit, x.ing) : x.unit ? fmtQty(x.qty, x.unit) : `× ${x.qty}`);
+
+function StockRow({ s, x, onEdit }) {
   const ing = ING[x.ing];
   const d = dlcInfo(x.dlc);
   return html`<${Swipeable} onLeft=${() => removeStockItem(x.id)} leftLabel="Fini">
     <div class="list-item" onClick=${onEdit} style="cursor:pointer">
-      <span class="thumb sm" style="background:var(--surface-2)">${ing?.emoji || '🛒'}</span>
+      <${Thumb} p=${getProduct(s, x.productId)} emoji=${ing?.emoji} cls="thumb sm stock-thumb" />
       <div class="grow" style="min-width:0">
         <div class="small strong clamp2">${x.name}</div>
-        <div class="subtle xs">${ing ? fmtQty(x.qty, ing.unit, x.ing) : `× ${x.qty}`}</div>
+        <div class="subtle xs">${lotQty(x)}</div>
       </div>
       ${x.dlc && html`<${Badge} tone=${d.tone}>${d.past ? 'À vérifier' : d.label}</${Badge}>`}
     </div>
@@ -109,10 +111,11 @@ function AddStockSheet({ open, s, onClose }) {
   };
   const p = pid ? getProduct(s, pid) : null;
   const ing = p && ING[p.ing];
-  const hasPack = p && ing && p.size;
+  const hasPack = p && p.size && (ing || p.unit);
   const qty = !p ? 0 : hasPack ? p.size * f.packs : ing ? f.grams : f.packs;
+  const sizeLabel = hasPack ? (ing ? packLabel(ing, p.size) : fmtQty(p.size, p.unit)) : '';
   const save = () => {
-    addStock({ productId: p.id, ing: ing ? p.ing : null, name: p.name, qty, dlc: f.dlc || null, location: f.location, nutri: p.nutri });
+    addStock({ productId: p.id, ing: ing ? p.ing : null, name: p.name, qty, unit: !ing && hasPack ? p.unit : null, dlc: f.dlc || null, location: f.location, nutri: p.nutri });
     close();
   };
   const set = (patch) => setF({ ...f, ...patch });
@@ -124,12 +127,12 @@ function AddStockSheet({ open, s, onClose }) {
     ${p && html`<div>
       <div class="card flat row" style="gap:12px">
         ${p.image ? html`<img class="pick-img lg" src=${p.image} alt="" referrerpolicy="no-referrer" />` : html`<span class="thumb sm" style="background:var(--surface-2)">${p.emoji || ing?.emoji || '🛒'}</span>`}
-        <div class="grow" style="min-width:0"><div class="strong clamp2">${p.name}</div><div class="subtle xs">${p.custom ? [p.brand, p.quantity].filter(Boolean).join(' · ') : storeLabel(p)}</div></div>
+        <div class="grow" style="min-width:0"><div class="strong clamp2">${p.name}</div><${BrandPill} p=${p} /></div>
       </div>
       <div class="card flat" style="margin-top:12px">
         <div class="row between"><b class="small">Quantité</b>
           ${hasPack
-            ? html`<${Stepper} value=${f.packs} min=${1} max=${50} onChange=${(v) => set({ packs: v })} format=${(v) => `${v} × ${packLabel(ing, p.size)}`} />`
+            ? html`<${Stepper} value=${f.packs} min=${1} max=${50} onChange=${(v) => set({ packs: v })} format=${(v) => `${v} × ${sizeLabel}`} />`
             : ing ? html`<${Stepper} value=${f.grams} min=${ing.unit === 'pc' ? 1 : 10} step=${ing.unit === 'pc' ? 1 : 50} onChange=${(v) => set({ grams: v })} format=${(v) => fmtQty(v, ing.unit, p.ing)} />`
             : html`<${Stepper} value=${f.packs} min=${1} max=${50} onChange=${(v) => set({ packs: v })} format=${(v) => `× ${v}`} />`}
         </div>
@@ -154,7 +157,8 @@ function StockEditSheet({ id, s, onClose }) {
   const x = s.inventory.find((i) => i.id === id);
   if (!x) return html`<${Sheet} open=${false} />`;
   const ing = ING[x.ing];
-  const step = !ing ? 1 : ing.unit === 'pc' ? 1 : ing.unit === 'ml' ? 100 : 50;
+  const unit = ing?.unit || x.unit;
+  const step = !unit || unit === 'pc' ? 1 : unit === 'ml' ? 100 : 50;
   const nutri = x.nutri || getProduct(s, x.productId)?.nutri || (ing && ing.unit !== 'pc' ? { kcal: ing.kcal, prot: ing.prot } : null);
   return html`<${Sheet} open=${true} onClose=${onClose} title=${x.name} subtitle=${x.addedAt ? `Ajouté le ${fmtShort(x.addedAt)}` : ''}
     footer=${html`<div class="row">
@@ -162,7 +166,7 @@ function StockEditSheet({ id, s, onClose }) {
       <button type="button" class="btn primary grow" onClick=${onClose}>OK</button></div>`}>
     <div class="card flat">
       <div class="row between"><span class="small strong">Quantité</span>
-        <${Stepper} value=${x.qty} min=${0} step=${step} format=${(v) => (ing ? fmtQty(v, ing.unit, x.ing) : v)}
+        <${Stepper} value=${x.qty} min=${0} step=${step} format=${(v) => (unit ? fmtQty(v, unit, x.ing) : v)}
           onChange=${(v) => { if (v <= 0) { removeStockItem(x.id); onClose(); } else updateStockItem(x.id, { qty: v }); }} /></div>
       <div class="hr"></div>
       <div class="row between"><span class="small strong">Rangement</span>

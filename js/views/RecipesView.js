@@ -5,7 +5,7 @@ import { RecipeSheet } from '../components/RecipeSheet.js';
 import { RecipeEditor } from '../components/RecipeEditor.js';
 import { MEALS, MEAL_KEYS } from '../data/recipes.js';
 import { ING } from '../data/ingredients.js';
-import { recipeStats, stockMatch, isBlocked, budgetLevel, budgetLabel, kcalFmt, allRecipes, recipeTier, ingTier, TIER_META, norm } from '../lib/engine.js';
+import { recipeStats, stockMatch, isBlocked, budgetLevel, budgetLabel, kcalFmt, allRecipes, recipeTier, TIER_META, norm, euro } from '../lib/engine.js';
 
 const NO_FILTERS = { time: null, budget: null, stock: false, tier: null, mine: false };
 
@@ -28,7 +28,7 @@ export function RecipesView() {
     && (!nq || norm(x.r.name).includes(nq) || x.lines.some((l) => norm(ING[l.ing].name).includes(nq)))
     && (meal === 'all' || x.r.meals.includes(meal))
     && (!f.time || x.r.time <= f.time)
-    && (!f.budget || x.budget <= f.budget)
+    && (!f.budget || x.cost <= f.budget)
     && (!f.stock || x.match.ratio >= 0.75)
     && (!f.tier || x.tier === f.tier)
     && (!f.mine || x.r.custom))
@@ -36,7 +36,7 @@ export function RecipesView() {
   const hidden = enriched.filter((x) => x.blocked).length;
   const active = [
     f.time && { k: 'time', label: `${f.time} min max` },
-    f.budget && { k: 'budget', label: `Budget ${budgetLabel(f.budget)}` },
+    f.budget && { k: 'budget', label: `${euro(f.budget)} max / portion` },
     f.stock && { k: 'stock', label: 'Avec mon stock' },
     f.tier && { k: 'tier', label: `${TIER_META[f.tier].emoji} ${TIER_META[f.tier].label}` },
     f.mine && { k: 'mine', label: 'Mes recettes' },
@@ -90,6 +90,17 @@ export function RecipesView() {
   </div>`;
 }
 
+function RangeFilter({ label, min, max, step, value, onChange, format, anyLabel }) {
+  const v = value ?? max;
+  const pct = ((v - min) / (max - min)) * 100;
+  return html`<div class="filter-group">
+    <div class="row between"><span class="label" style="margin:0">${label}</span><b class="small num">${value ? format(value) : anyLabel}</b></div>
+    <input type="range" class="range" min=${min} max=${max} step=${step} value=${v} style=${{ '--p': `${pct}%` }} aria-label=${label}
+      onInput=${(e) => { const n = +e.currentTarget.value; onChange(n >= max ? null : n); }} />
+    <div class="range-scale"><span>${format(min).replace(' max', '')}</span><span>${anyLabel}</span></div>
+  </div>`;
+}
+
 const tierRank = (t) => ({ refuge: 0, ok: 1, doux: 2 }[t] ?? 1.5);
 
 function FiltersSheet({ open, f, setF, onClose, count }) {
@@ -97,10 +108,10 @@ function FiltersSheet({ open, f, setF, onClose, count }) {
   return html`<${Sheet} open=${open} onClose=${onClose} title="Filtres"
     footer=${html`<div class="row"><button type="button" class="btn ghost" onClick=${() => setF(NO_FILTERS)}>Tout effacer</button>
       <button type="button" class="btn primary grow" onClick=${onClose}>Voir ${count} recette${count > 1 ? 's' : ''}</button></div>`}>
-    <div class="filter-group"><div class="label">Temps de préparation</div>
-      <div class="chips">${[[10, '10 min max'], [20, '20 min max'], [30, '30 min max']].map(([v, l]) => html`<${Chip} active=${f.time === v} onClick=${() => set('time', v)}>${l}</${Chip}>`)}</div></div>
-    <div class="filter-group"><div class="label">Budget par portion</div>
-      <div class="chips">${[[1, '€ moins de 1,50 €'], [2, '€€ moins de 2,50 €']].map(([v, l]) => html`<${Chip} active=${f.budget === v} onClick=${() => set('budget', v)}>${l}</${Chip}>`)}</div></div>
+    <${RangeFilter} label="Temps total" min=${5} max=${60} step=${5} value=${f.time} onChange=${(v) => setF({ ...f, time: v })}
+      format=${(v) => `${v} min max`} anyLabel="Peu importe" />
+    <${RangeFilter} label="Budget par portion" min=${0.5} max=${5} step=${0.25} value=${f.budget} onChange=${(v) => setF({ ...f, budget: v })}
+      format=${(v) => `${euro(v)} max`} anyLabel="Peu importe" />
     <div class="filter-group"><div class="label">Mes préférences</div>
       <div class="chips">${['refuge', 'ok', 'doux'].map((k) => html`<${Chip} active=${f.tier === k} onClick=${() => set('tier', k)}>${TIER_META[k].emoji} ${TIER_META[k].label}</${Chip}>`)}
         <${Chip} active=${f.mine} onClick=${() => setF({ ...f, mine: !f.mine })}>✍️ Mes recettes</${Chip}></div></div>

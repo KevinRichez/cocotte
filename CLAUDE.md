@@ -47,6 +47,15 @@ js/
   views/                    Onboarding, WeekView, ShoppingView, RecipesView, ProfileView
 ```
 
+### Détails métier
+
+- Objectif kcal : TDEE ± (150 + 40 kcal par kg d'écart au poids visé, max 700), x1,3 en rythme "Plus rapide".
+- Créneau planifié : `{ recipeId, swaps, status, servings? }`. Les suggestions visent le reste de kcal du jour (`slotBudget`) et proposent une portion x1 à x2 (`servingsFor`).
+- Recettes intégrées modifiables : la version modifiée est stockée dans `customRecipes` avec le même id et `override: true` ("Rétablir la recette d’origine" la supprime). Champs `prep` et `cook` optionnels.
+- Formats : `sizes` par ingrédient (x1, x2, x4, à l'unité...). L'id du format par défaut reste `magasin.ingredient.palier`, les autres ajoutent `.sN`. La liste générée choisit le plus petit format suffisant.
+- Produits scannés : photo, grammage (`unit` g ou ml) et nutrition Open Food Facts. `ingNutri()` utilise ces vraies valeurs dans les calculs de kcal quand l'aliment est en stock.
+- Les logos officiels des marques ne sont pas utilisés (droits) : pastilles colorées par type de marque (`BrandPill`).
+
 ### Invariants
 
 - Un produit est exprimé dans l'unité de son ingrédient (`size` en g, ml ou pièces). Produit perso sans ingrédient : non déduit par les recettes.

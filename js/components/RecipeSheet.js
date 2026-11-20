@@ -29,11 +29,11 @@ export function RecipeSheet({ recipeId, onClose, target }) {
   const lines = useMemo(() => (r ? recipeLines(r, swaps, servings) : []), [r, swaps, servings]);
   if (!r) return null;
   const base = recipeLines(r, swaps);
-  const per = nutrition(base);
+  const per = nutrition(base, s);
   const cost = linesCost(s, base);
   const missing = lines.filter((l) => !ING[l.ing].staple && stockQty(s, l.ing) < l.qty).map((l) => l.ing);
   const tier = recipeTier(s, r.id);
-  const confirm = () => { planRecipe(pick.date, pick.meal, r.id, swaps); onClose(); };
+  const confirm = () => { planRecipe(pick.date, pick.meal, r.id, swaps, servings); onClose(); };
   const days = Array.from({ length: 7 }, (_, i) => addDays(today(), i));
 
   const footer = picking
@@ -55,19 +55,21 @@ export function RecipeSheet({ recipeId, onClose, target }) {
     <div class="thumb lg" style=${{ background: r.color }}>${r.emoji}</div>
     <div style="margin:14px 2px 6px">
       <div class="row wrap" style="gap:6px;margin-bottom:8px">
-        ${r.custom && html`<${Badge} tone="slate">Ma recette</${Badge}>`}
+        ${r.custom && html`<${Badge} tone="slate">${r.override ? 'Modifiée par toi' : 'Ma recette'}</${Badge}>`}
         ${missing.length === 0 && html`<${Badge} tone="sage">✓ Tout en stock</${Badge}>`}
         ${!canCook(s, r) && html`<${Badge} tone="mute">Matériel manquant</${Badge}>`}
       </div>
       <div class="row" style="align-items:flex-start">
         <h2 class="h1 grow" style="font-size:24px">${r.name}</h2>
-        ${r.custom && html`<button type="button" class="icon-btn sm" aria-label="Modifier la recette" onClick=${() => setEditing(true)}><${Icon} name="edit" size=${16} /></button>`}
+        <button type="button" class="icon-btn sm" aria-label="Modifier la recette" onClick=${() => setEditing(true)}><${Icon} name="edit" size=${16} /></button>
       </div>
     </div>
     <div class="label" style="margin-top:6px">Pour toi, cette recette est</div>
     <${TierPicker} value=${tier} onChange=${(v) => setTier('recipe', r.id, v)} />
     <div class="stat-grid" style="margin:14px 0 12px">
-      <div class="stat"><b>${r.time} min</b><span>Temps</span></div>
+      ${r.prep != null || r.cook != null
+        ? html`<div class="stat"><b>${r.prep || 0}+${r.cook || 0}′</b><span>Prépa + cuisson</span></div>`
+        : html`<div class="stat"><b>${r.time} min</b><span>Temps</span></div>`}
       <div class="stat"><b>${kcalFmt(per.kcal)}</b><span>kcal / pers.</span></div>
       <div class="stat"><b>${Math.round(per.prot)} g</b><span>Protéines</span></div>
       <div class="stat"><b>${budgetLabel(budgetLevel(cost))}</b><span>${euro(cost)}</span></div>
@@ -75,7 +77,7 @@ export function RecipeSheet({ recipeId, onClose, target }) {
     <div class="chips" style="margin-bottom:6px">${r.equipment.map((e) => html`<span class="badge neutral" style="height:28px">${EQUIPMENT[e]?.emoji} ${EQUIPMENT[e]?.label}</span>`)}</div>
 
     <div class="section-title"><div class="h2">Ingrédients</div>
-      <${Stepper} value=${servings} min=${1} max=${12} onChange=${setServings} format=${(v) => `${v} pers.`} />
+      <${Stepper} value=${servings} min=${0.5} max=${12} step=${0.5} onChange=${setServings} format=${(v) => `${String(v).replace('.', ',')} portion${v > 1 ? 's' : ''}`} />
     </div>
     <div class="list">
       ${lines.map((l) => {
@@ -108,7 +110,8 @@ export function RecipeSheet({ recipeId, onClose, target }) {
     ${r.steps?.length > 0 && html`<div class="section-title"><div class="h2">Étapes</div></div>
     <ol class="steps">${r.steps.map((st) => html`<li><span>${st}</span></li>`)}</ol>`}
 
-    ${r.custom && html`<button type="button" class="btn ghost block" style="margin-top:14px" onClick=${() => { deleteRecipe(r.id); onClose(); }}><${Icon} name="trash" size=${16} />Supprimer cette recette</button>`}
+    ${r.custom && !r.override && html`<button type="button" class="btn ghost block" style="margin-top:14px" onClick=${() => { deleteRecipe(r.id); onClose(); }}><${Icon} name="trash" size=${16} />Supprimer cette recette</button>`}
+    ${r.override && html`<button type="button" class="btn ghost block" style="margin-top:14px" onClick=${() => deleteRecipe(r.id, { restoreOriginal: true })}><${Icon} name="refresh" size=${16} />Rétablir la recette d’origine</button>`}
     <${RecipeEditor} open=${editing} recipe=${r} onClose=${() => setEditing(false)} />
   </${Sheet}>`;
 }

@@ -1,7 +1,7 @@
 import { html, useState, useEffect, useMemo } from '../lib/h.js';
 import { useStore, update } from '../store.js';
 import { Icon, Chip, Seg, Sheet, Swipeable, Stepper, Toggle, Empty, useDebounced } from '../components/ui.js';
-import { ProductSearch, ProductRow } from '../components/ProductSearch.js';
+import { ProductSearch, ProductRow, BrandPill, Thumb } from '../components/ProductSearch.js';
 import { AISLES, STORES, storeLabel } from '../data/products.js';
 import { ING } from '../data/ingredients.js';
 import { fmtDayLong, fmtShort, relDay, today } from '../lib/dates.js';
@@ -92,9 +92,9 @@ function ActiveList({ s }) {
           <div class=${`list-item ${it.checked ? 'checked' : ''}`} onClick=${() => toggleItem(it.id)} style="cursor:pointer">
             <span class=${`check ${it.checked ? 'on pop' : ''}`}><${Icon} name="check" size=${16} stroke=${3} /></span>
             <div class="grow" style="min-width:0">
-              <div class="item-name strong small clamp2">${info.emoji} ${info.name}</div>
+              <div class="item-name strong small clamp2">${info.prod?.image ? html`<img class="inline-img" src=${info.prod.image} alt="" loading="lazy" referrerpolicy="no-referrer" />` : info.emoji} ${info.name}</div>
               <div class="item-sub">
-                ${info.prod && html`<span>${storeLabel(info.prod)}</span>`}
+                ${info.prod && html`<${BrandPill} p=${info.prod} />`}
                 ${it.source === 'plan' && html`<span class="badge sage xs">Planning</span>`}
                 ${info.prod?.ing && productsForIng(s, info.prod.ing).length > 1 && html`<button type="button" class="link-btn" onClick=${(e) => { e.stopPropagation(); setEditItem(it); }}>Changer</button>`}
               </div>
@@ -177,7 +177,7 @@ function FinishSheet({ open, onClose, s }) {
       const est = prod ? estimateDlc(s, prod.id, prod.ing) : '';
       const where = prod ? (prod.storage || ING[prod.ing]?.storage) : 'placard';
       return html`<div class="list-item" key=${it.id} style="min-height:58px">
-        <span style="font-size:20px">${info.emoji}</span>
+<${Thumb} p=${prod} emoji=${info.emoji} />
         <div class="grow" style="min-width:0"><div class="small strong clamp2">${info.name}</div>
           <div class="subtle xs">${where === 'frigo' ? '🧊 Frigo' : '📦 Placard'} · ×${it.qty}</div></div>
         <input type="date" class="field date-sm" value=${dlc[it.id] || est} onInput=${(e) => setDlc({ ...dlc, [it.id]: e.currentTarget.value })} />
@@ -206,19 +206,54 @@ function CatalogTab({ s }) {
   </div>`;
 }
 
+const MONTHS_FULL = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+const pad2 = (n) => String(n).padStart(2, '0');
+const sum = (arr) => arr.reduce((n, x) => n + x.total, 0);
+
 function HistoryTab({ s }) {
   const [open, setOpen] = useState(null);
-  const h = s.history;
-  const avg = h.length ? h.reduce((n, x) => n + x.total, 0) / h.length : 0;
-  const month = h.filter((x) => x.date.slice(0, 7) === today().slice(0, 7)).reduce((n, x) => n + x.total, 0);
+  const curMonth = today().slice(0, 7);
+  const [openMonths, setOpenMonths] = useState({ [curMonth]: true });
+  const h = [...s.history].sort((a, b) => b.date.localeCompare(a.date));
+  const [y, m] = curMonth.split('-').map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  const inMonth = h.filter((x) => x.date.startsWith(curMonth));
+  const months = [...new Set(h.map((x) => x.date.slice(0, 7)))];
+  const avgMonthTrip = inMonth.length ? sum(inMonth) / inMonth.length : 0;
+  const avgTrip = h.length ? sum(h) / h.length : 0;
+  const avgMonth = months.length ? sum(h) / months.length : 0;
+  const years = [...new Set(months.map((k) => k.slice(0, 4)))];
+
   return html`<div>
-    <div class="row" style="margin-top:14px;gap:10px">
-      <div class="card grow"><div class="subtle">Ce mois-ci</div><div class="h2 num">${euro(month)}</div></div>
-      <div class="card grow"><div class="subtle">Moyenne / course</div><div class="h2 num">${euro(avg)}</div></div>
+    <div class="card pad-lg" style="margin-top:14px">
+      <div class="row between"><div><div class="strong">Ce mois-ci</div><div class="subtle xs">Du 01/${pad2(m)} au ${lastDay}/${pad2(m)}</div></div>
+        <div class="h1 num" style="font-size:28px">${euro(sum(inMonth))}</div></div>
+      <div class="stats3">
+        <div><b class="num">${euro(avgMonthTrip)}</b><span>Moy. par course ce mois</span></div>
+        <div><b class="num">${euro(avgTrip)}</b><span>Moy. par course (global)</span></div>
+        <div><b class="num">${euro(avgMonth)}</b><span>Dépense moy. par mois</span></div>
+      </div>
     </div>
     ${!h.length && html`<${Empty} emoji="🧾" title="Pas encore de courses rangées" />`}
-    <div class="stack" style="margin-top:14px">
-      ${h.map((x) => html`<div class="card tappable" key=${x.id} onClick=${() => setOpen(open === x.id ? null : x.id)}>
+    ${years.map((yr) => html`<div key=${yr}>
+      <div class="store-title">${yr}</div>
+      ${months.filter((k) => k.startsWith(yr)).map((k) => {
+        const trips = h.filter((x) => x.date.startsWith(k));
+        const isOpen = !!openMonths[k];
+        return html`<div key=${k}>
+          <button type="button" class="month-head" onClick=${() => setOpenMonths({ ...openMonths, [k]: !isOpen })} aria-expanded=${isOpen}>
+            <span class="grow"><b>${MONTHS_FULL[+k.slice(5) - 1].replace(/^./, (c) => c.toUpperCase())}</b><small>${trips.length} course${trips.length > 1 ? 's' : ''}</small></span>
+            <b class="num">${euro(sum(trips))}</b><${Icon} name=${isOpen ? 'chevU' : 'chevD'} size=${18} />
+          </button>
+          ${isOpen && html`<div class="stack">${trips.map((x) => html`<${Trip} key=${x.id} s=${s} x=${x} open=${open === x.id} onToggle=${() => setOpen(open === x.id ? null : x.id)} />`)}</div>`}
+        </div>`;
+      })}
+    </div>`)}
+  </div>`;
+}
+
+function Trip({ s, x, open, onToggle }) {
+  return html`<div class="card tappable" onClick=${onToggle}>
         <div class="hist-item">
           <span class="thumb sm" style="background:var(--sage-50)">${x.source === 'ticket' ? '🧾' : '🛒'}</span>
           <div class="grow">
@@ -226,16 +261,14 @@ function HistoryTab({ s }) {
             <div class="subtle">${x.count} articles${x.items[0]?.store ? ` · ${STORES[x.items[0].store]?.name || ''}` : ''}${x.source === 'ticket' ? ' · ticket' : ''}</div>
           </div>
           <div class="h3 num">${euro(x.total)}</div>
-          <${Icon} name=${open === x.id ? 'chevU' : 'chevD'} size=${18} class="muted" />
+          <${Icon} name=${open ? 'chevU' : 'chevD'} size=${18} class="muted" />
         </div>
-        ${open === x.id && html`<div style="margin-top:12px">
+        ${open && html`<div style="margin-top:12px">
           ${x.items.map((it) => html`<div class="kv"><span class="clamp2" style="min-width:0">${it.qty > 1 ? `${it.qty} × ` : ''}${it.name}</span><span class="num strong">${euro(it.price * it.qty)}</span></div>`)}
           <button type="button" class="btn soft sm block" style="margin-top:10px" onClick=${(e) => { e.stopPropagation(); x.items.forEach((it) => it.productId && getProduct(s, it.productId) && addToList(it.productId, it.qty, { silent: true })); }}>
             <${Icon} name="refresh" size=${15} />Remettre dans ma liste</button>
         </div>`}
-      </div>`)}
-    </div>
-  </div>`;
+      </div>`;
 }
 
 function TicketSheet({ open, onClose, s }) {
