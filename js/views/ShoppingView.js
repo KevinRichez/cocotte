@@ -217,9 +217,12 @@ function CatalogTab({ s }) {
 
 const MONTHS_FULL = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 const pad2 = (n) => String(n).padStart(2, '0');
-const sum = (arr) => arr.reduce((n, x) => n + x.total, 0);
+const isFood = (s, it) => !it.ignored && !getProduct(s, it.productId)?.ignored;
+const foodTotal = (s, x) => Math.round(x.items.filter((it) => isFood(s, it)).reduce((n, it) => n + it.price * it.qty, 0) * 100) / 100;
+const fullTotal = (x) => x.ticketTotal ?? Math.round(x.items.reduce((n, it) => n + it.price * it.qty, 0) * 100) / 100;
 
 function HistoryTab({ s }) {
+  const sum = (arr) => arr.reduce((n, x) => n + foodTotal(s, x), 0);
   const [open, setOpen] = useState(null);
   const curMonth = today().slice(0, 7);
   const [openMonths, setOpenMonths] = useState({ [curMonth]: true });
@@ -235,13 +238,14 @@ function HistoryTab({ s }) {
 
   return html`<div>
     <div class="card pad-lg" style="margin-top:14px">
-      <div class="row between"><div><div class="strong">Ce mois-ci</div><div class="subtle xs">Du 01/${pad2(m)} au ${lastDay}/${pad2(m)}</div></div>
+      <div class="row between"><div><div class="strong">Alimentation ce mois-ci</div><div class="subtle xs">Du 01/${pad2(m)} au ${lastDay}/${pad2(m)}</div></div>
         <div class="h1 num" style="font-size:28px">${euro(sum(inMonth))}</div></div>
       <div class="stats3">
         <div><b class="num">${euro(avgMonthTrip)}</b><span>Moy. par course ce mois</span></div>
         <div><b class="num">${euro(avgTrip)}</b><span>Moy. par course (global)</span></div>
         <div><b class="num">${euro(avgMonth)}</b><span>Dépense moy. par mois</span></div>
       </div>
+      <p class="subtle xs" style="margin:10px 0 0">Seuls les produits rangés au frigo ou au placard comptent. Boissons, snacks et non-alimentaire sont exclus.</p>
     </div>
     ${!h.length && html`<${Empty} emoji="🧾" title="Pas encore de courses rangées" />`}
     ${years.map((yr) => html`<div key=${yr}>
@@ -267,14 +271,16 @@ function Trip({ s, x, open, onToggle }) {
           <span class="thumb sm" style="background:var(--sage-50)">${x.source === 'ticket' ? '🧾' : '🛒'}</span>
           <div class="grow">
             <div class="strong">${relDay(x.date) === fmtDayLong(x.date) ? fmtDayLong(x.date) : `${relDay(x.date)} · ${fmtShort(x.date)}`}</div>
-            <div class="subtle">${x.count} articles${x.items[0]?.store ? ` · ${STORES[x.items[0].store]?.name || ''}` : ''}${x.source === 'ticket' ? ' · ticket' : ''}</div>
+            <div class="subtle">${x.items.filter((it) => isFood(s, it)).reduce((n, it) => n + it.qty, 0)} articles${x.items[0]?.store ? ` · ${STORES[x.items[0].store]?.name || ''}` : ''}${x.source === 'ticket' ? ' · ticket' : ''}</div>
           </div>
-          <div class="h3 num">${euro(x.total)}</div>
+          <div style="text-align:right"><div class="h3 num">${euro(foodTotal(s, x))}</div>
+            ${fullTotal(x) - foodTotal(s, x) > 0.004 && html`<div class="subtle xs num">Ticket complet ${euro(fullTotal(x))}</div>`}</div>
           <${Icon} name=${open ? 'chevU' : 'chevD'} size=${18} class="muted" />
         </div>
         ${open && html`<div style="margin-top:12px">
-          ${x.items.map((it) => html`<div class="kv"><span class="clamp2" style="min-width:0">${it.qty > 1 ? `${it.qty} × ` : ''}${it.name}</span><span class="num strong">${euro(it.price * it.qty)}</span></div>`)}
-          <button type="button" class="btn soft sm block" style="margin-top:10px" onClick=${(e) => { e.stopPropagation(); x.items.forEach((it) => it.productId && getProduct(s, it.productId) && addToList(it.productId, it.qty, { silent: true })); }}>
+          ${x.items.filter((it) => isFood(s, it)).map((it) => html`<div class="kv"><span class="clamp2" style="min-width:0">${it.qty > 1 ? `${it.qty} × ` : ''}${it.name}</span><span class="num strong">${euro(it.price * it.qty)}</span></div>`)}
+          ${x.items.some((it) => !isFood(s, it)) && html`<div class="kv excluded"><span class="clamp2" style="min-width:0">Hors alimentation : ${x.items.filter((it) => !isFood(s, it)).map((it) => it.name).join(', ')}</span><span class="num">${euro(fullTotal(x) - foodTotal(s, x))}</span></div>`}
+          <button type="button" class="btn soft sm block" style="margin-top:10px" onClick=${(e) => { e.stopPropagation(); x.items.forEach((it) => isFood(s, it) && it.productId && getProduct(s, it.productId) && addToList(it.productId, it.qty, { silent: true })); }}>
             <${Icon} name="refresh" size=${15} />Remettre dans ma liste</button>
         </div>`}
       </div>`;

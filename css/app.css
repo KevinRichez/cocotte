@@ -468,3 +468,5 @@ textarea.steps-input { font-family: var(--font); font-size: 14px; min-height: 12
 .psize { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 6px; background: var(--surface-2); color: var(--ink); font-size: 11px; font-weight: 800; white-space: nowrap; }
 .ignored-box { margin-top: 18px; }
 .ignored-box summary { cursor: pointer; font-weight: 700; font-size: 13.5px; color: var(--ink-3); padding: 8px 2px; }
+
+.kv.excluded { color: var(--ink-3); font-size: 13px; }

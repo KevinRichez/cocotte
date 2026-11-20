@@ -232,10 +232,12 @@ export function applyTicket(items, dlcs = {}) {
         dlc: dlcs[it.key] || estimateDlc(d, p.id, ing), location: it.storage, nutri: it.nutri || undefined,
       });
       d.shoppingList.forEach((x) => { if (ing && getProduct(d, x.productId)?.ing === ing) x.checked = true; });
-      hItems.push({ productId: p.id, name: p.name, store: it.store, aisle: p.aisle, qty: it.qty, price: it.unitPrice });
+      hItems.push({ productId: p.id, name: p.name, store: it.store, aisle: p.aisle, qty: it.qty, price: it.unitPrice, ...(it.ignored ? { ignored: true } : {}) });
     }
-    const total = Math.round(hItems.reduce((n, x) => n + x.price * x.qty, 0) * 100) / 100;
-    d.history.unshift({ id: uid(), date: t, total, count: hItems.reduce((n, x) => n + x.qty, 0), items: hItems, source: 'ticket' });
+    const food = hItems.filter((x) => !x.ignored);
+    const total = Math.round(food.reduce((n, x) => n + x.price * x.qty, 0) * 100) / 100;
+    const ticketTotal = Math.round(hItems.reduce((n, x) => n + x.price * x.qty, 0) * 100) / 100;
+    d.history.unshift({ id: uid(), date: t, total, ticketTotal, count: food.reduce((n, x) => n + x.qty, 0), items: hItems, source: 'ticket' });
     d.shoppingList = d.shoppingList.filter((x) => !x.checked);
     d.lastTicketSync = t;
   });
