@@ -1,35 +1,42 @@
-// Actions métier : toutes les mutations d'état passent par ici.
 import { update, restore, getState } from './store.js';
 import { toast } from './lib/toast.js';
-import { RECIPE, MEALS } from './data/recipes.js';
-import { PRODUCT } from './data/catalog.js';
-import { ING } from './data/ingredients.js';
+import { MEALS, MEAL_KEYS } from './data/recipes.js';
+import { ING, guessIngredient } from './data/ingredients.js';
 import { today, relDay } from './lib/dates.js';
 import {
   uid, recipeLines, consumeLines, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
-  listItemInfo, listTotal, euro, productPrice,
+  listItemInfo, listTotal, euro, getProduct, getRecipe, defaultProductFor,
 } from './lib/engine.js';
 
 const undoable = (prev, message) => toast(message, { action: 'Annuler', onAction: () => restore(prev) });
+const mealName = (m) => MEALS[m].label.toLowerCase();
 
-/* ---------- Planning ---------- */
 export function planRecipe(date, meal, recipeId, swaps = {}) {
   const prev = update((d) => {
     d.plan[date] = d.plan[date] || {};
     d.plan[date][meal] = { recipeId, swaps, status: 'planned' };
   });
-  undoable(prev, `${RECIPE[recipeId].name} · ${relDay(date)}, ${MEALS[meal].label.toLowerCase()}`);
+  undoable(prev, `${getRecipe(getState(), recipeId)?.name} · ${relDay(date)}, ${mealName(meal)}`);
+}
+
+function eatInDraft(d, date, meal) {
+  const slot = d.plan[date]?.[meal];
+  if (!slot || slot.status !== 'planned') return false;
+  slot.status = 'eaten';
+  const r = getRecipe(d, slot.recipeId);
+  if (r) consumeLines(d, recipeLines(r, slot.swaps));
+  return true;
 }
 
 export function markEaten(date, meal) {
-  const prev = update((d) => {
-    const slot = d.plan[date]?.[meal];
-    if (!slot) return;
-    slot.status = 'eaten';
-    const r = RECIPE[slot.recipeId];
-    if (r) consumeLines(d, recipeLines(r, slot.swaps));
-  });
+  const prev = update((d) => { eatInDraft(d, date, meal); });
   undoable(prev, 'Bon appétit ! Stock mis à jour');
+}
+
+export function markDayEaten(date) {
+  let n = 0;
+  const prev = update((d) => { for (const m of MEAL_KEYS) if (eatInDraft(d, date, m)) n++; });
+  if (n) undoable(prev, `${n} repas validé${n > 1 ? 's' : ''} · stock mis à jour`);
 }
 
 export function markOutside(date, meal, { tags, note }) {
@@ -38,13 +45,12 @@ export function markOutside(date, meal, { tags, note }) {
     d.plan[date] = d.plan[date] || {};
     const slot = d.plan[date][meal];
     if (slot?.recipeId && slot.status === 'planned') {
-      // Les ingrédients prévus ne sont pas perdus : la recette est mise de côté pour être recasée.
       d.deferred.push({ id: uid(), recipeId: slot.recipeId, swaps: slot.swaps || {}, from: { date, meal } });
-      replaced = RECIPE[slot.recipeId]?.name;
+      replaced = getRecipe(d, slot.recipeId)?.name;
     }
     d.plan[date][meal] = { status: 'outside', outside: { tags, note } };
   });
-  undoable(prev, replaced ? `Noté ! « ${replaced} » sera re-proposé plus tard` : 'Noté, profite bien !');
+  undoable(prev, replaced ? `Noté · « ${replaced} » sera re-proposé` : 'Noté, profite bien !');
 }
 
 export function skipSlot(date, meal) {
@@ -56,7 +62,7 @@ export function skipSlot(date, meal) {
     }
     d.plan[date][meal] = { status: 'skipped', recipeId: slot?.recipeId };
   });
-  undoable(prev, 'Tu écoutes ta faim, c’est parfait 🌿');
+  undoable(prev, 'Repas passé');
 }
 
 export function resetSlot(date, meal) {
@@ -76,25 +82,24 @@ export function clearSlot(date, meal) {
 export function placeDeferred(id, target) {
   const s = getState();
   const item = s.deferred.find((x) => x.id === id);
-  if (!item) return;
-  const slot = target || nextFreeSlot(s, RECIPE[item.recipeId]);
+  const r = item && getRecipe(s, item.recipeId);
+  if (!r) return;
+  const slot = target || nextFreeSlot(s, r);
   if (!slot) { toast('Aucun créneau libre cette semaine'); return; }
   const prev = update((d) => {
     d.plan[slot.date] = d.plan[slot.date] || {};
     d.plan[slot.date][slot.meal] = { recipeId: item.recipeId, swaps: item.swaps, status: 'planned' };
     d.deferred = d.deferred.filter((x) => x.id !== id);
   });
-  undoable(prev, `Recasé ${relDay(slot.date).toLowerCase()}, ${MEALS[slot.meal].label.toLowerCase()}`);
+  undoable(prev, `Recasé ${relDay(slot.date).toLowerCase()}, ${mealName(slot.meal)}`);
 }
-export function dropDeferred(id) {
-  update((d) => { d.deferred = d.deferred.filter((x) => x.id !== id); });
-}
+export const dropDeferred = (id) => update((d) => { d.deferred = d.deferred.filter((x) => x.id !== id); });
 
 export function autofillWeek(dates, suggestFn) {
   let n = 0;
   const prev = update((d) => {
     for (const date of dates) {
-      for (const meal of ['petitdej', 'dej', 'collation', 'diner']) {
+      for (const meal of MEAL_KEYS) {
         if (d.plan[date]?.[meal]) continue;
         const best = suggestFn(d, date, meal);
         if (!best) continue;
@@ -104,14 +109,12 @@ export function autofillWeek(dates, suggestFn) {
       }
     }
   });
-  if (n) undoable(prev, `${n} créneau${n > 1 ? 'x' : ''} rempli${n > 1 ? 's' : ''} avec des idées`);
-  else toast('Ta semaine est déjà bien remplie 👌');
+  if (n) undoable(prev, `${n} créneau${n > 1 ? 'x' : ''} rempli${n > 1 ? 's' : ''}`);
+  else toast('Ta semaine est déjà bien remplie');
 }
 
-/* ---------- Liste de courses ---------- */
 export function generateList(dates) {
-  const s = getState();
-  const needs = compileNeeds(s, dates);
+  const needs = compileNeeds(getState(), dates);
   const prev = update((d) => {
     d.shoppingList = d.shoppingList.filter((x) => !(x.source === 'plan' && !x.checked));
     for (const n of needs) {
@@ -123,34 +126,34 @@ export function generateList(dates) {
   });
   const st = getState();
   if (needs.length) undoable(prev, `${needs.length} produit${needs.length > 1 ? 's' : ''} manquant${needs.length > 1 ? 's' : ''} · ${euro(listTotal(st, st.shoppingList))}`);
-  else toast('Tout est déjà dans tes placards 🎉');
+  else toast('Tout est déjà dans tes placards');
 }
 
-export function addToList(productId, qty = 1) {
+export function addToList(productId, qty = 1, { silent } = {}) {
   update((d) => {
     const ex = d.shoppingList.find((x) => x.productId === productId && !x.checked);
     if (ex) ex.qty += qty;
     else d.shoppingList.push({ id: uid(), productId, qty, checked: false, source: 'manual' });
   });
-  toast(`${PRODUCT[productId].name} ajouté à la liste`);
-}
-export function addCustomToList(name) {
-  update((d) => { d.shoppingList.push({ id: uid(), name, qty: 1, price: 0, checked: false, source: 'manual' }); });
+  if (!silent) toast(`${getProduct(getState(), productId)?.name} ajouté`);
 }
 export function addIngsToList(ings) {
   const s = getState();
   let n = 0;
   update((d) => {
     for (const ing of ings) {
-      const pid = Object.values(PRODUCT).find((p) => p.id === (s.brandPrefs?.[ing]))?.id || null;
-      const prodId = pid || Object.values(PRODUCT).filter((p) => p.ing === ing).sort((a, b) => a.price / a.size - b.price / b.size)[0]?.id;
-      if (!prodId || d.shoppingList.some((x) => x.productId === prodId && !x.checked)) continue;
-      d.shoppingList.push({ id: uid(), productId: prodId, qty: 1, checked: false, source: 'manual' }); n++;
+      const pid = defaultProductFor(s, ing);
+      if (!pid || d.shoppingList.some((x) => x.productId === pid && !x.checked)) continue;
+      d.shoppingList.push({ id: uid(), productId: pid, qty: 1, checked: false, source: 'manual' }); n++;
     }
   });
   toast(n ? `${n} produit${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''} à la liste` : 'Déjà dans ta liste');
 }
 export const toggleItem = (id) => update((d) => { const it = d.shoppingList.find((x) => x.id === id); if (it) it.checked = !it.checked; });
+export function checkAll(on = true) {
+  const prev = update((d) => { d.shoppingList.forEach((x) => { x.checked = on; }); });
+  undoable(prev, on ? 'Tout est dans le caddie' : 'Tout est décoché');
+}
 export const setItemQty = (id, qty) => update((d) => {
   if (qty <= 0) d.shoppingList = d.shoppingList.filter((x) => x.id !== id);
   else { const it = d.shoppingList.find((x) => x.id === id); if (it) it.qty = qty; }
@@ -164,11 +167,24 @@ export function swapItemProduct(id, productId) {
     const it = d.shoppingList.find((x) => x.id === id);
     if (!it) return;
     it.productId = productId;
-    d.brandPrefs[PRODUCT[productId].ing] = productId;
+    const ing = getProduct(d, productId)?.ing;
+    if (ing) d.brandPrefs[ing] = productId;
   });
 }
 
-/** "J'ai fini mes courses" : archive, transfère au stock, vide la liste. */
+function stockFromProduct(d, productId, packs, dlc) {
+  const p = getProduct(d, productId);
+  if (!p) return;
+  const ing = p.ing && ING[p.ing] ? p.ing : null;
+  addToInventory(d, {
+    ing, productId: p.id, name: ing ? p.name : p.name,
+    qty: ing && p.size ? p.size * packs : packs,
+    dlc: dlc || estimateDlc(d, p.id, ing),
+    location: p.storage || ING[ing]?.storage || 'placard',
+    nutri: p.nutri,
+  });
+}
+
 export function finishShopping({ keepUnchecked = false, dlcOverrides = {} } = {}) {
   const s = getState();
   const bought = s.shoppingList.filter((x) => x.checked);
@@ -176,57 +192,53 @@ export function finishShopping({ keepUnchecked = false, dlcOverrides = {} } = {}
   const t = today();
   const items = bought.map((it) => {
     const info = listItemInfo(s, it);
-    return { productId: it.productId || null, name: info.name, brand: info.brand, aisle: info.aisle, qty: it.qty, price: info.unitPrice };
+    return { productId: it.productId || null, name: info.name, store: info.store, aisle: info.aisle, qty: it.qty, price: info.unitPrice };
   });
   const total = Math.round(items.reduce((n, x) => n + x.price * x.qty, 0) * 100) / 100;
   const prev = update((d) => {
     d.history.unshift({ id: uid(), date: t, total, count: items.reduce((n, x) => n + x.qty, 0), items, source: 'app' });
     for (const it of bought) {
-      const prod = PRODUCT[it.productId];
-      if (prod) {
-        addToInventory(d, {
-          ing: prod.ing, qty: prod.size * it.qty, productId: prod.id,
-          dlc: dlcOverrides[it.id] || estimateDlc(prod.id, prod.ing, t), location: ING[prod.ing].storage,
-        });
-      } else {
-        addToInventory(d, { ing: null, name: it.name, qty: it.qty, dlc: dlcOverrides[it.id] || null, location: 'placard' });
-      }
+      if (getProduct(d, it.productId)) stockFromProduct(d, it.productId, it.qty, dlcOverrides[it.id]);
+      else addToInventory(d, { ing: guessIngredient(it.name), name: it.name, qty: it.qty, dlc: dlcOverrides[it.id] || null, location: 'placard' });
     }
     d.shoppingList = keepUnchecked ? d.shoppingList.filter((x) => !x.checked) : [];
     d.ui.shopTab = 'history';
   });
-  undoable(prev, `Courses archivées · ${euro(total)} · stock mis à jour`);
+  undoable(prev, `Courses rangées · ${euro(total)}`);
 }
 
-/** Import d'un ticket : met à jour les prix, ajoute au stock, archive et coche la liste. */
-export function applyTicket(items, { updatePrices = true, addStock = true, archive = true, checkList = true }) {
+export function applyTicket(items, dlcs = {}) {
   const t = today();
   const prev = update((d) => {
     for (const it of items) {
-      const prod = PRODUCT[it.productId];
-      if (updatePrices) d.priceOverrides[it.productId] = { price: it.unitPrice, date: t };
-      if (addStock) addToInventory(d, { ing: prod.ing, qty: prod.size * it.qty, productId: prod.id, dlc: estimateDlc(prod.id, prod.ing, t), location: ING[prod.ing].storage });
-      if (checkList) d.shoppingList.forEach((x) => { if (x.productId === it.productId) x.checked = true; });
+      d.priceOverrides[it.productId] = { price: it.unitPrice, date: t };
+      stockFromProduct(d, it.productId, it.qty, dlcs[it.key]);
+      d.shoppingList.forEach((x) => { if (x.productId === it.productId || getProduct(d, x.productId)?.ing === getProduct(d, it.productId)?.ing) x.checked = true; });
     }
-    if (archive) {
-      const hItems = items.map((it) => ({ productId: it.productId, name: PRODUCT[it.productId].name, brand: PRODUCT[it.productId].brand, aisle: PRODUCT[it.productId].aisle, qty: it.qty, price: it.unitPrice }));
-      const total = Math.round(hItems.reduce((n, x) => n + x.price * x.qty, 0) * 100) / 100;
-      d.history.unshift({ id: uid(), date: t, total, count: hItems.reduce((n, x) => n + x.qty, 0), items: hItems, source: 'ticket' });
-      if (checkList) d.shoppingList = d.shoppingList.filter((x) => !x.checked);
-    }
+    const hItems = items.map((it) => { const p = getProduct(d, it.productId); return { productId: it.productId, name: p.name, store: p.store, aisle: p.aisle, qty: it.qty, price: it.unitPrice }; });
+    const total = Math.round(hItems.reduce((n, x) => n + x.price * x.qty, 0) * 100) / 100;
+    d.history.unshift({ id: uid(), date: t, total, count: hItems.reduce((n, x) => n + x.qty, 0), items: hItems, source: 'ticket' });
+    d.shoppingList = d.shoppingList.filter((x) => !x.checked);
     d.lastTicketSync = t;
   });
-  undoable(prev, `Ticket importé · ${items.length} produits synchronisés`);
+  undoable(prev, `Ticket importé · ${items.length} produits rangés`);
 }
 
-/* ---------- Stock ---------- */
-export function quickAddStock(ing) {
-  const meta = ING[ing];
+export function saveCustomProduct(product) {
+  const id = product.id || `perso.${uid()}`;
+  update((d) => {
+    const i = d.customProducts.findIndex((p) => p.id === id || (product.barcode && p.barcode === product.barcode));
+    const p = { aisle: 'Divers', emoji: ING[product.ing]?.emoji || '🛒', ...product, id, custom: true };
+    if (i >= 0) d.customProducts[i] = { ...d.customProducts[i], ...p, id: d.customProducts[i].id };
+    else d.customProducts.push(p);
+  });
   const s = getState();
-  const pid = s.brandPrefs?.[ing] || Object.values(PRODUCT).find((p) => p.ing === ing)?.id;
-  const qty = PRODUCT[pid]?.size || (meta.unit === 'pc' ? 1 : 100);
-  const prev = update((d) => { addToInventory(d, { ing, qty, productId: pid, dlc: estimateDlc(pid, ing), location: meta.storage }); });
-  undoable(prev, `${meta.emoji} ${meta.name} ajouté au ${meta.storage === 'frigo' ? 'frigo' : 'placard'}`);
+  return s.customProducts.find((p) => p.id === id || (product.barcode && p.barcode === product.barcode))?.id || id;
+}
+
+export function addStock({ productId, ing, name, qty, dlc, location, nutri }) {
+  const prev = update((d) => { addToInventory(d, { productId, ing, name, qty, dlc, location, nutri }); });
+  undoable(prev, `${name} rangé au ${location === 'frigo' ? 'frigo' : 'placard'}`);
 }
 export const updateStockItem = (id, patch) => update((d) => {
   const it = d.inventory.find((x) => x.id === id);
@@ -239,12 +251,28 @@ export function removeStockItem(id) {
   undoable(prev, `${name} retiré du stock`);
 }
 
-/* ---------- Préférences ---------- */
-export function setPref(ing, cat) {
+export function setTier(kind, id, tier) {
   update((d) => {
-    for (const k of ['refuges', 'defis', 'nogo']) d.prefs[k] = d.prefs[k].filter((x) => x !== ing);
-    if (cat) d.prefs[cat].push(ing);
+    if (tier) d.prefs[kind][id] = tier;
+    else delete d.prefs[kind][id];
   });
 }
 export const setProfile = (patch) => update((d) => { Object.assign(d.profile, patch); });
-export const productUnitPrice = (s, id) => productPrice(s, id);
+
+export function saveRecipe(recipe) {
+  const id = recipe.id || `perso_${uid()}`;
+  const prev = update((d) => {
+    const r = { ...recipe, id, custom: true };
+    const i = d.customRecipes.findIndex((x) => x.id === id);
+    if (i >= 0) d.customRecipes[i] = r; else d.customRecipes.unshift(r);
+  });
+  undoable(prev, recipe.id ? 'Recette mise à jour' : 'Recette créée');
+  return id;
+}
+export function deleteRecipe(id) {
+  const prev = update((d) => {
+    d.customRecipes = d.customRecipes.filter((r) => r.id !== id);
+    delete d.prefs.recipe[id];
+  });
+  undoable(prev, 'Recette supprimée');
+}

@@ -1,61 +1,55 @@
-// Parseur de ticket E.Leclerc dématérialisé (texte collé).
-// Reconnaît les lignes "LIBELLE ... 1,25", "2 x 0,89 LIBELLE 1,78" ou "LIBELLE 2 x 0,89 1,78".
-import { CATALOG, BRANDS } from '../data/catalog.js';
+import { guessIngredient, ING } from '../data/ingredients.js';
+import { STORES, bankProduct } from '../data/products.js';
 
 const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-const SKIP = /(total|sous-total|tva|carte|cb |c\.b|espece|rendu|ticket|merci|siret|caisse|ticket|fidelite|avantage|remise|bon d'achat|points|net a payer|a payer|articles?\s*:)/i;
+const SKIP = /(total|sous-total|tva|carte|cb |c\.b|espece|rendu|ticket|merci|siret|caisse|fidelite|avantage|remise|bon d'achat|points|net a payer|a payer|articles?\s*:|sac cabas|sac )/i;
 const money = (s) => parseFloat(s.replace(',', '.'));
 
-function brandHint(text) {
-  if (/\b(mr|marque repere|repere)\b/.test(text)) return 'Marque Repère';
-  if (/eco\s?\+|eco plus|\beco\b/.test(text)) return 'Eco+';
-  if (/bio village|\bbio\b/.test(text)) return 'Bio Village';
+const STORE_HINTS = [
+  ['leclerc', /leclerc/], ['carrefour', /carrefour/], ['lidl', /lidl/], ['auchan', /auchan/], ['intermarche', /intermarche/],
+  ['superu', /super u|hyper u|magasins u|\bsuper\s?u\b/], ['aldi', /aldi/], ['monoprix', /monoprix/], ['casino', /casino/],
+];
+
+function tierHint(text, store) {
+  const st = STORES[store];
+  if (/\bbio\b/.test(text)) return 'bio';
+  if (st.eco && text.includes(norm(st.eco).replace('+', ''))) return 'eco';
+  if (/\beco\s?\+|\bpouce\b|\bsimpl\b|top budget|bien vu|premier prix/.test(text)) return 'eco';
   return null;
 }
 
-function matchProduct(label) {
-  const text = norm(label);
-  const brand = brandHint(text);
-  let best = null;
-  for (const prod of CATALOG) {
-    let score = 0;
-    for (const kw of prod.keywords) {
-      const k = norm(kw);
-      if (k.length > 2 && text.includes(k)) score += k.length > 5 ? 2 : 1.5;
-    }
-    if (!score) continue;
-    if (brand && prod.brand === brand) score += 1.5;
-    if (!brand && prod.brand === 'Bio Village') score -= 0.5;
-    if (!best || score > best.score) best = { prod, score };
-  }
-  return best && best.score >= 1.5 ? best.prod : null;
+function productFor(store, ing, tier) {
+  const fresh = ING[ing].fresh;
+  const order = tier ? [tier] : [];
+  order.push(fresh ? 'vrac' : 'mdd', 'eco', 'nat', 'bio', 'vrac');
+  for (const t of order) { const p = bankProduct(`${store}.${ing}.${t}`); if (p) return p; }
+  return null;
 }
 
-export function parseTicket(raw) {
+export function parseTicket(raw, defaultStore = 'leclerc') {
   const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const head = norm(lines.slice(0, 6).join(' '));
+  const store = STORE_HINTS.find(([, re]) => re.test(head))?.[0] || defaultStore;
   const items = [];
   const ignored = [];
-  for (const line of lines) {
-    if (SKIP.test(norm(line))) { ignored.push(line); continue; }
+  lines.forEach((line, n) => {
+    const t = norm(line);
+    if (SKIP.test(t)) { ignored.push(line); return; }
     const priceMatch = line.match(/(-?\d+[.,]\d{2})\s*(€|eur)?\s*[A-Z]?$/i);
-    if (!priceMatch) { ignored.push(line); continue; }
-    let total = money(priceMatch[1]);
-    if (total <= 0) { ignored.push(line); continue; }
+    if (!priceMatch) { ignored.push(line); return; }
+    const total = money(priceMatch[1]);
+    if (total <= 0) { ignored.push(line); return; }
     let label = line.slice(0, priceMatch.index).trim();
-    let qty = 1;
-    let unit = total;
+    let qty = 1, unit = total;
     const qx = label.match(/(\d+)\s*[x×*]\s*(\d+[.,]\d{2})/i);
-    if (qx) {
-      qty = parseInt(qx[1], 10);
-      unit = money(qx[2]);
-      label = label.replace(qx[0], ' ').trim();
-    }
+    if (qx) { qty = parseInt(qx[1], 10); unit = money(qx[2]); label = label.replace(qx[0], ' ').trim(); }
     label = label.replace(/\s{2,}/g, ' ');
-    const prod = matchProduct(label);
-    if (prod) items.push({ line, label, productId: prod.id, qty, unitPrice: unit, total });
+    const ing = guessIngredient(label);
+    const prod = ing && productFor(store, ing, tierHint(norm(label), store));
+    if (prod) items.push({ key: `t${n}`, line, label, productId: prod.id, qty, unitPrice: unit, total });
     else ignored.push(line);
-  }
-  return { items, ignored };
+  });
+  return { store, items, ignored };
 }
 
 export const SAMPLE_TICKET = `E.LECLERC
@@ -73,5 +67,3 @@ LAIT DEMI ECREME MR 1L       0,99
 SAC CABAS                    0,10
 TOTAL                       23,99
 CB                          23,99`;
-
-export { BRANDS };

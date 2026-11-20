@@ -1,6 +1,6 @@
-import { h, render, Fragment } from 'preact';
-import { useState, useEffect, useMemo, useRef, useCallback } from 'preact/hooks';
-import htm from 'htm';
+import { h, render } from '../../vendor/preact.module.js';
+import htm from '../../vendor/htm.module.js';
 
 export const html = htm.bind(h);
-export { h, render, Fragment, useState, useEffect, useMemo, useRef, useCallback };
+export { h, render };
+export { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from '../../vendor/hooks.module.js';

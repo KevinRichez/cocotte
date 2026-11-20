@@ -5,32 +5,31 @@ import { WeekView } from './views/WeekView.js';
 import { ShoppingView } from './views/ShoppingView.js';
 import { RecipesView } from './views/RecipesView.js';
 import { ProfileView } from './views/ProfileView.js';
+import { Onboarding } from './views/Onboarding.js';
 import { dlcInfo } from './lib/dates.js';
 
 const TABS = [
-  { id: 'week', label: 'Semaine', icon: 'calendar' },
-  { id: 'shop', label: 'Courses', icon: 'cart' },
-  { id: 'recipes', label: 'Recettes', icon: 'book' },
-  { id: 'profile', label: 'Profil', icon: 'user' },
+  { id: 'week', label: 'Semaine', icon: 'calendar', View: WeekView },
+  { id: 'shop', label: 'Courses', icon: 'cart', View: ShoppingView },
+  { id: 'recipes', label: 'Recettes', icon: 'book', View: RecipesView },
+  { id: 'profile', label: 'Profil', icon: 'user', View: ProfileView },
 ];
 
 function App() {
   const s = useStore();
-  const tab = s.ui.tab;
-  const listCount = s.shoppingList.filter((x) => !x.checked).length;
-  const soonCount = s.inventory.filter((x) => { const d = dlcInfo(x.dlc); return d.days >= 0 && d.days <= 2; }).length;
-  const badge = { shop: listCount, profile: soonCount };
-  const go = (id) => { setTab(id); window.scrollTo({ top: 0 }); };
-
+  if (!s.profile.onboarded) return html`<div class="app"><${Onboarding} /><${Toasts} /></div>`;
+  const tab = TABS.find((t) => t.id === s.ui.tab) || TABS[0];
+  const badge = {
+    shop: s.shoppingList.filter((x) => !x.checked).length,
+    profile: s.inventory.filter((x) => { const d = dlcInfo(x.dlc); return d.days >= 0 && d.days <= 2; }).length,
+  };
+  const go = (id) => { if (id !== tab.id) { setTab(id); window.scrollTo({ top: 0 }); } };
   return html`<div class="app">
-    ${tab === 'week' && html`<${WeekView} />`}
-    ${tab === 'shop' && html`<${ShoppingView} />`}
-    ${tab === 'recipes' && html`<${RecipesView} />`}
-    ${tab === 'profile' && html`<${ProfileView} />`}
+    <${tab.View} />
     <${Toasts} />
     <nav class="bottom-nav" aria-label="Navigation principale">
-      ${TABS.map((t) => html`<button class=${`nav-btn ${tab === t.id ? 'active' : ''}`} onClick=${() => go(t.id)} aria-current=${tab === t.id ? 'page' : null}>
-        <span class="nav-ico"><${Icon} name=${t.icon} size=${21} stroke=${tab === t.id ? 2.3 : 2} /></span>
+      ${TABS.map((t) => html`<button type="button" class=${`nav-btn ${tab.id === t.id ? 'active' : ''}`} onClick=${() => go(t.id)} aria-current=${tab.id === t.id ? 'page' : null}>
+        <span class="nav-ico"><${Icon} name=${t.icon} size=${21} stroke=${tab.id === t.id ? 2.3 : 2} /></span>
         ${t.label}
         ${badge[t.id] > 0 && html`<span class="nav-badge">${badge[t.id]}</span>`}
       </button>`)}
@@ -39,3 +38,4 @@ function App() {
 }
 
 render(html`<${App} />`, document.getElementById('app'));
+document.documentElement.classList.add('ready');

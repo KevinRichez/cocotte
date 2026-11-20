@@ -1,59 +1,72 @@
 import { html, useState, useEffect, useRef } from '../lib/h.js';
 import { Icon } from './icons.js';
 import { subscribeToasts, dismiss } from '../lib/toast.js';
-import { BRANDS } from '../data/catalog.js';
+import { TIER_META, TIER_KEYS, kcalFmt } from '../lib/engine.js';
 
 export { Icon };
 
-export function Chip({ active, onClick, children, sm, tone, dashed, title }) {
-  const cls = ['chip', sm && 'sm', active && (tone === 'sage' ? 'active-sage' : 'active'), dashed && 'dashed'].filter(Boolean).join(' ');
-  return html`<button class=${cls} onClick=${onClick} title=${title} aria-pressed=${!!active}>${children}</button>`;
+export function Chip({ active, onClick, children, sm, dashed, title }) {
+  const cls = ['chip', sm && 'sm', active && 'active', dashed && 'dashed'].filter(Boolean).join(' ');
+  return html`<button type="button" class=${cls} onClick=${onClick} title=${title} aria-pressed=${!!active}>${children}</button>`;
 }
 
 export const Badge = ({ tone = 'neutral', children }) => html`<span class=${`badge ${tone}`}>${children}</span>`;
 
-export function BrandTag({ brand }) {
-  const b = BRANDS[brand];
-  if (!b) return null;
-  return html`<span class=${`brand ${b.cls}`}>${b.short}</span>`;
-}
-
 export function Seg({ value, onChange, options }) {
   return html`<div class="seg" role="tablist">
-    ${options.map((o) => html`<button role="tab" class=${value === o.value ? 'on' : ''} onClick=${() => onChange(o.value)}>
+    ${options.map((o) => html`<button type="button" role="tab" aria-selected=${value === o.value} class=${value === o.value ? 'on' : ''} onClick=${() => onChange(o.value)}>
       ${o.icon && html`<${Icon} name=${o.icon} size=${16} />`}${o.label}
     </button>`)}
   </div>`;
 }
 
 export function Toggle({ on, onChange, label }) {
-  return html`<button class=${`toggle ${on ? 'on' : ''}`} role="switch" aria-checked=${on} aria-label=${label} onClick=${() => onChange(!on)}></button>`;
+  return html`<button type="button" class=${`toggle ${on ? 'on' : ''}`} role="switch" aria-checked=${on} aria-label=${label} onClick=${() => onChange(!on)}></button>`;
 }
 
-export function Stepper({ value, onChange, min = 0, step = 1, format }) {
+export function Stepper({ value, onChange, min = 0, max = Infinity, step = 1, format }) {
+  const set = (v) => onChange(Math.min(max, Math.max(min, Math.round(v * 10) / 10)));
   return html`<div class="stepper">
-    <button aria-label="Moins" onClick=${(e) => { e.stopPropagation(); onChange(Math.max(min, Math.round((value - step) * 10) / 10)); }}><${Icon} name="minus" size=${16} /></button>
+    <button type="button" aria-label="Moins" onClick=${(e) => { e.stopPropagation(); set(value - step); }}><${Icon} name="minus" size=${16} /></button>
     <span>${format ? format(value) : value}</span>
-    <button aria-label="Plus" onClick=${(e) => { e.stopPropagation(); onChange(Math.round((value + step) * 10) / 10); }}><${Icon} name="plus" size=${16} /></button>
+    <button type="button" aria-label="Plus" onClick=${(e) => { e.stopPropagation(); set(value + step); }}><${Icon} name="plus" size=${16} /></button>
   </div>`;
 }
 
-export function Ring({ value, max, size = 76, stroke = 8, children }) {
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const pct = Math.min(1, max ? value / max : 0);
-  return html`<div class="ring-wrap" style=${{ width: size + 'px', height: size + 'px' }}>
-    <svg width=${size} height=${size}>
-      <circle cx=${size / 2} cy=${size / 2} r=${r} fill="none" stroke="var(--surface-3)" stroke-width=${stroke} />
-      <circle cx=${size / 2} cy=${size / 2} r=${r} fill="none" stroke="var(--sage)" stroke-width=${stroke} stroke-linecap="round"
-        stroke-dasharray=${c} stroke-dashoffset=${c * (1 - pct)} style="transition: stroke-dashoffset .6s var(--ease)" />
-    </svg>
-    <div class="ring-center">${children}</div>
+export function KcalGauge({ eaten, planned, target, compact }) {
+  const max = Math.max(target * 1.2, planned, 1);
+  const pct = (v) => `${Math.min(100, (v / max) * 100)}%`;
+  const reached = eaten >= target - 50;
+  const plannedOk = planned >= target - 50;
+  return html`<div class=${`gauge-wrap ${compact ? 'compact' : ''}`}>
+    <div class="gauge-nums">
+      <div><span class="g-big num">${kcalFmt(eaten)}</span><span class="g-unit">/ ${kcalFmt(target)} kcal</span></div>
+      ${reached && html`<span class="badge sage"><${Icon} name="check" size=${12} />Atteint</span>`}
+    </div>
+    <div class="gauge" role="img" aria-label=${`${kcalFmt(eaten)} kcal mangées, ${kcalFmt(planned)} prévues, repère ${kcalFmt(target)}`}>
+      <i class="g-planned" style=${{ width: pct(planned) }}></i>
+      <i class="g-eaten" style=${{ width: pct(eaten) }}></i>
+      <span class="g-target" style=${{ left: pct(target) }}></span>
+    </div>
+    <div class="gauge-legend">
+      <span><i class="dot-eaten"></i>Mangé</span>
+      <span><i class="dot-planned"></i>Avec le prévu : <b class="num">${kcalFmt(planned)}</b></span>
+      <span class=${plannedOk ? 'ok' : ''}>${plannedOk ? 'Objectif atteint' : `Manque ~${kcalFmt(target - planned)}`}</span>
+    </div>
   </div>`;
 }
 
-/** Bottom sheet avec poignée (glisser vers le bas pour fermer). */
-export function Sheet({ open, onClose, title, subtitle, children, footer }) {
+export function TierPicker({ value, onChange, compact }) {
+  return html`<div class=${`tiers ${compact ? 'compact' : ''}`} role="radiogroup">
+    ${TIER_KEYS.map((k) => html`<button type="button" role="radio" aria-checked=${value === k} class=${`tier ${k} ${value === k ? 'on' : ''}`}
+      title=${TIER_META[k].label} onClick=${(e) => { e.stopPropagation(); onChange(value === k ? null : k); }}>
+      <span>${TIER_META[k].emoji}</span>${!compact && html`<small>${TIER_META[k].label}</small>`}
+    </button>`)}
+  </div>`;
+}
+
+let openSheets = 0;
+export function Sheet({ open, onClose, title, subtitle, children, footer, tall }) {
   const [dy, setDy] = useState(0);
   const start = useRef(null);
   useEffect(() => {
@@ -61,8 +74,9 @@ export function Sheet({ open, onClose, title, subtitle, children, footer }) {
     setDy(0);
     const onKey = (e) => e.key === 'Escape' && onClose();
     document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
+    openSheets++;
+    document.body.classList.add('locked');
+    return () => { document.removeEventListener('keydown', onKey); openSheets = Math.max(0, openSheets - 1); if (!openSheets) document.body.classList.remove('locked'); };
   }, [open]);
   if (!open) return null;
   const down = (e) => { start.current = e.clientY; e.currentTarget.setPointerCapture(e.pointerId); };
@@ -70,19 +84,18 @@ export function Sheet({ open, onClose, title, subtitle, children, footer }) {
   const up = () => { if (dy > 110) onClose(); else setDy(0); start.current = null; };
   return html`
     <div class="sheet-backdrop" onClick=${onClose}></div>
-    <div class="sheet" role="dialog" aria-modal="true" aria-label=${title}
+    <div class=${`sheet ${tall ? 'tall' : ''}`} role="dialog" aria-modal="true" aria-label=${title}
       style=${dy ? { transform: `translate(-50%, ${dy}px)`, transition: 'none' } : null}>
       <div class="sheet-handle" onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up}><i></i></div>
       ${title && html`<div class="sheet-head">
         <div class="grow"><div class="h2">${title}</div>${subtitle && html`<div class="subtle">${subtitle}</div>`}</div>
-        <button class="icon-btn sm" aria-label="Fermer" onClick=${onClose}><${Icon} name="x" size=${16} /></button>
+        <button type="button" class="icon-btn sm" aria-label="Fermer" onClick=${onClose}><${Icon} name="x" size=${16} /></button>
       </div>`}
       <div class="sheet-body">${children}</div>
       ${footer && html`<div class="sheet-foot">${footer}</div>`}
     </div>`;
 }
 
-/** Ligne swipeable : glisser à droite (onRight) / à gauche (onLeft). */
 export function Swipeable({ children, onLeft, onRight, leftLabel, rightLabel, leftIcon = 'check', rightIcon = 'trash' }) {
   const [x, setX] = useState(0);
   const [drag, setDrag] = useState(false);
@@ -97,8 +110,8 @@ export function Swipeable({ children, onLeft, onRight, leftLabel, rightLabel, le
     }
     if (s.locked === 'x') {
       let v = dx;
-      if (!onRight && v > 0) v = v * 0.15;
-      if (!onLeft && v < 0) v = v * 0.15;
+      if (!onRight && v > 0) v *= 0.15;
+      if (!onLeft && v < 0) v *= 0.15;
       setX(v);
     }
   };
@@ -129,7 +142,7 @@ export function Toasts() {
   return html`<div class="toasts" aria-live="polite">
     ${list.map((t) => html`<div class="toast" key=${t.id}>
       <span>${t.message}</span>
-      ${t.action && html`<button onClick=${() => { t.onAction?.(); dismiss(t.id); }}>${t.action}</button>`}
+      ${t.action && html`<button type="button" onClick=${() => { t.onAction?.(); dismiss(t.id); }}>${t.action}</button>`}
     </div>`)}
   </div>`;
 }
@@ -140,4 +153,10 @@ export function Empty({ emoji = '🌿', title, children }) {
 
 export function SectionTitle({ title, right }) {
   return html`<div class="section-title"><div class="h2">${title}</div>${right}</div>`;
+}
+
+export function useDebounced(value, ms = 250) {
+  const [v, setV] = useState(value);
+  useEffect(() => { const t = setTimeout(() => setV(value), ms); return () => clearTimeout(t); }, [value, ms]);
+  return v;
 }

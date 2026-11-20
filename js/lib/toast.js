@@ -1,9 +1,8 @@
-// Toasts légers avec action optionnelle (ex : "Annuler").
 const listeners = new Set();
 let toasts = [];
 let seq = 0;
 
-export function toast(message, { action, onAction, duration = 3200 } = {}) {
+export function toast(message, { action, onAction, duration = 3600 } = {}) {
   const id = ++seq;
   toasts = [...toasts.slice(-2), { id, message, action, onAction }];
   emit();

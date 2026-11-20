@@ -1,4 +1,3 @@
-// Dates locales au format ISO court "YYYY-MM-DD" (jamais d'UTC pour éviter les décalages).
 const pad = (n) => String(n).padStart(2, '0');
 export const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 export const today = () => iso(new Date());
@@ -26,7 +25,6 @@ export function relDay(s) {
   return fmtDayLong(s);
 }
 
-/** Statut doux d'une DLC. tone : peach (bientôt), amber (quelques jours), neutral, mute (dépassée). */
 export function dlcInfo(dlc) {
   if (!dlc) return { days: Infinity, label: 'Sans date', tone: 'neutral', soon: false };
   const days = diffDays(dlc, today());
