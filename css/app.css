@@ -1,26 +1,31 @@
-/* FitMus : design system. Mode clair lumineux, accents vert sauge / ardoise, badges doux. */
+/* Cocotte : design system "émail de cuisine". Fond faïence, structure vert laurier, action jaune beurre, zéro rouge.
+   Les noms --sage / --slate sont gardés pour ne pas toucher les vues : sage = laurier, slate = fonte. */
 :root {
   color-scheme: light;
-  --bg: #F6F5F1;
+  --bg: #EEF2EC;          /* faïence */
   --surface: #FFFFFF;
-  --surface-2: #F1F0EB;
-  --surface-3: #E9E7E1;
-  --ink: #1E2A32;
-  --ink-2: #51606B;
-  --ink-3: #8B959C;
-  --line: #E8E6E0;
+  --surface-2: #E6ECE4;
+  --surface-3: #DAE2D8;
+  --ink: #17201C;         /* fonte */
+  --ink-2: #56625C;
+  --ink-3: #87938C;
+  --line: #DCE3DA;
 
-  --sage: #6E9479;
-  --sage-600: #557A61;
-  --sage-700: #44654F;
-  --sage-100: #DCE8DF;
-  --sage-50: #EEF4EF;
-  --slate: #3D5160;
-  --slate-100: #DCE3E8;
-  --slate-50: #ECF0F3;
+  --sage: #3E7A60;
+  --sage-600: #1F4D3A;    /* laurier */
+  --sage-700: #1F4D3A;
+  --sage-100: #CFE6D6;    /* menthe */
+  --sage-50: #E2EFE5;
+  --slate: #24332C;
+  --slate-100: #D7DFDA;
+  --slate-50: #E7EDE9;
 
-  --amber: #8F621A;  --amber-50: #FBF1DF;
-  --peach: #9C5537;  --peach-50: #FCEAE1;
+  --beurre: #F7C948;
+  --beurre-600: #E3AE2A;
+  --beurre-50: #FCEBB4;
+
+  --amber: #7A5A06;  --amber-50: #FCEBB4;
+  --peach: #8F4A22;  --peach-50: #FDE3D2;
   --lav: #6359A0;    --lav-50: #EFEDF8;
   --sky: #376688;    --sky-50: #E6EFF6;
   --mint: #2F7461;   --mint-50: #E2F2EC;
@@ -34,6 +39,7 @@
   --shadow-lg: 0 10px 40px rgba(30, 42, 50, .16);
   --ease: cubic-bezier(.2, .8, .2, 1);
   --font: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --display: 'Bricolage Grotesque', 'Plus Jakarta Sans', system-ui, sans-serif;
   --nav-h: 68px;
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
@@ -60,8 +66,8 @@ h1, h2, h3, h4, p { margin: 0; }
 
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 14px; }
 .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
-.h1 { font-size: 26px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; }
-.h2 { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+.h1 { font-family: var(--display); font-size: 30px; font-weight: 800; letter-spacing: -.035em; line-height: 1.05; }
+.h2 { font-family: var(--display); font-size: 19px; font-weight: 700; letter-spacing: -.015em; }
 .h3 { font-size: 15px; font-weight: 700; }
 .muted { color: var(--ink-2); }
 .subtle { color: var(--ink-3); font-size: 13px; }
@@ -109,7 +115,7 @@ h1, h2, h3, h4, p { margin: 0; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 999px; font-weight: 700; font-size: 15px; transition: transform .12s var(--ease), background .2s, opacity .2s; white-space: nowrap; }
 .btn:active { transform: scale(.96); }
 .btn:disabled { opacity: .45; pointer-events: none; }
-.btn.primary { background: var(--sage-600); color: #fff; box-shadow: 0 6px 18px rgba(85, 122, 97, .3); }
+.btn.primary { background: var(--beurre); color: var(--ink); box-shadow: 0 6px 18px rgba(227, 174, 42, .35); }
 .btn.dark { background: var(--slate); color: #fff; }
 .btn.soft { background: var(--sage-50); color: var(--sage-700); }
 .btn.ghost { background: var(--surface-2); color: var(--ink); }
@@ -126,7 +132,7 @@ h1, h2, h3, h4, p { margin: 0; }
 .quick-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; }
 .qa { display: flex; align-items: center; justify-content: center; gap: 6px; height: 38px; border-radius: 12px; font-size: 12.5px; font-weight: 700; background: var(--surface-2); color: var(--ink-2); transition: transform .12s var(--ease), background .2s; }
 .qa:active { transform: scale(.95); }
-.qa.eat { background: var(--sage-50); color: var(--sage-700); }
+.qa.eat { background: var(--sage-600); color: #fff; }
 .qa.out { background: var(--slate-50); color: var(--slate); }
 .qa.skip { background: var(--lav-50); color: var(--lav); }
 

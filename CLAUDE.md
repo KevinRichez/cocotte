@@ -1,4 +1,4 @@
-# FitMus : contexte projet
+# Cocotte (ex FitMus) : contexte projet
 
 PWA mobile-first de gestion de courses (E.Leclerc), stock (placards / frigo) et recettes prise de masse, petit budget.
 Utilisateur : UX/UI designer exigeant, objectif prise de masse, gestion de TCA.
@@ -12,6 +12,15 @@ Utilisateur : UX/UI designer exigeant, objectif prise de masse, gestion de TCA.
 - **Conservation** : suivi par DLC par produit (`shelf` dans ingredients/catalog), pas de limite fixe. Alertes douces uniquement à J-2 ou moins.
 - Matériel dispo : plaques, poêle, casseroles, four, micro-ondes, grille-pain. **Pas de congélateur, pas de blender.**
 - Rédaction : français, **ne jamais utiliser de tiret quadratin (—) ni demi-cadratin (–)**. Utiliser ":" "," ou "·".
+
+## Identité (DA Cocotte, validée)
+
+- Référence : `brand/cocotte-da.html`. Symbole = cocotte vue de dessus (beurre sur laurier), logotype "cocotte" en Bricolage Grotesque 800 avec le symbole à la place du premier "o".
+- Palette : laurier #1F4D3A (structure), beurre #F7C948 (action principale `.btn.primary`), faïence #EEF2EC (fond), abricot (DLC douce), lavande (satiété), fonte #17201C (texte). Zéro rouge.
+- Typo : titres `.h1`/`.h2` en `--display` (Bricolage Grotesque), interface en Plus Jakarta Sans.
+- L'utilisateur préfère les **icônes et emojis actuels** de l'app : ne pas les remplacer par des pictos dessinés.
+- Icônes PNG générées en Python/Pillow (le script redessine le symbole, pas de lecture SVG).
+- Clé `localStorage` volontairement restée `fitmus:v1` pour garder les données.
 
 ## Stack (sans build)
 

@@ -1,0 +1,466 @@
+<meta charset="utf-8">
+<title>Cocotte · Direction artistique</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Planche de marque : bandes pleine largeur alternant faïence claire et vert laurier, contenu sur une grille de 1120px. Look volontairement unique (pas de thème sombre) : une identité se juge sur ses vraies couleurs. */
+:root {
+  --laurier: #1F4D3A;
+  --laurier-700: #163A2B;
+  --beurre: #F7C948;
+  --beurre-600: #E3AE2A;
+  --abricot: #F4A06B;
+  --faience: #EEF2EC;
+  --blanc: #FFFFFF;
+  --fonte: #17201C;
+  --fonte-60: #56625C;
+  --lavande: #CFC8EE;
+  --lavande-ink: #4A3F86;
+  --menthe: #CFE6D6;
+  --trait: #D5DDD5;
+  --display: "Bricolage Grotesque", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --text: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { background: var(--faience); color: var(--fonte); font-family: var(--text); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+.band { padding-block: clamp(56px, 8vw, 104px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.band.dark { background: var(--laurier); color: var(--faience); }
+.band.white { background: var(--blanc); }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 40px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--fonte-60); }
+.dark .eyebrow { color: #9FBFAE; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; letter-spacing: -0.02em; }
+h2 { font-size: clamp(32px, 4.4vw, 52px); line-height: 1.02; font-weight: 800; }
+h3 { font-size: 22px; font-weight: 700; }
+p { margin: 0; max-width: 62ch; }
+.lead { font-size: 18px; color: var(--fonte-60); }
+.dark .lead { color: #C9DCCF; }
+.head { display: grid; gap: 14px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 24px; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 20px; }
+.tile { border-radius: 28px; padding: 28px; min-width: 0; }
+
+/* Hero */
+.hero { min-height: auto; display: grid; gap: 48px; align-items: center; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); }
+.wm { font-family: var(--display); font-weight: 800; letter-spacing: -0.045em; line-height: .9; white-space: nowrap; display: inline-flex; align-items: baseline; }
+.wm .o { display: inline-block; width: .76em; height: .566em; margin: 0 -.005em 0 .055em; transform: translateY(.03em); flex: none; overflow: visible; }
+.hero .wm { font-size: clamp(76px, 13vw, 168px); color: var(--faience); }
+.tagline { font-family: var(--display); font-weight: 500; font-size: clamp(22px, 2.6vw, 30px); color: var(--beurre); letter-spacing: -0.01em; }
+.hero-mark { justify-self: center; width: min(100%, 380px); aspect-ratio: 1; }
+.hero-mark svg { width: 100%; height: 100%; display: block; }
+
+/* Nom */
+.name-why { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); }
+.why { background: var(--blanc); border-radius: 24px; padding: 24px; display: grid; gap: 10px; align-content: start; }
+.why .k { font-family: var(--display); font-weight: 800; font-size: 26px; letter-spacing: -0.02em; }
+.why p { color: var(--fonte-60); font-size: 15px; }
+.alts { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 14px; color: var(--fonte-60); }
+.alt { font-family: var(--display); font-weight: 700; font-size: 18px; color: var(--fonte); background: var(--blanc); border: 1px solid var(--trait); padding: 6px 16px; border-radius: 99px; }
+
+/* Symbole */
+.construct { background: var(--faience); border-radius: 28px; aspect-ratio: 1; display: grid; place-items: center; max-width: 100%; }
+.construct svg { width: 86%; height: 86%; }
+.sizes { display: flex; align-items: flex-end; gap: 28px; flex-wrap: wrap; padding: 24px; background: var(--faience); border-radius: 28px; }
+.sizes figure { margin: 0; display: grid; gap: 8px; justify-items: center; font-family: var(--mono); font-size: 11px; color: var(--fonte-60); }
+.rules { display: grid; gap: 14px; }
+.rule { display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: start; font-size: 15px; }
+.rule b { font-family: var(--mono); font-weight: 500; font-size: 12px; color: var(--laurier); background: var(--menthe); border-radius: 8px; text-align: center; padding: 3px 0; }
+
+/* Lockups */
+.lock { border-radius: 28px; padding: 40px 28px; display: grid; place-items: center; min-height: 220px; gap: 12px; min-width: 0; overflow: hidden; }
+.lock .wm { font-size: clamp(48px, 7vw, 76px); }
+.lock.l1 { background: var(--laurier); color: var(--faience); }
+.lock.l2 { background: var(--beurre); color: var(--laurier); }
+.lock.l3 { background: var(--blanc); color: var(--laurier); border: 1px solid var(--trait); }
+.lock.l4 { background: var(--fonte); color: var(--faience); }
+.stack { display: grid; justify-items: center; gap: 6px; }
+.stack .wm { font-size: 44px; }
+.caption { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .7; }
+
+/* Couleurs */
+.swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 14px; }
+.sw { border-radius: 24px; padding: 18px; min-height: 190px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; }
+.sw .n { font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: -0.02em; }
+.sw .h { font-family: var(--mono); font-size: 12px; }
+.sw .u { font-size: 13px; opacity: .85; }
+.ratio { display: flex; height: 18px; border-radius: 99px; overflow: hidden; }
+.ratio span { display: block; height: 100%; }
+.note { font-size: 14px; color: var(--fonte-60); display: flex; gap: 10px; align-items: flex-start; background: var(--blanc); border-radius: 18px; padding: 14px 18px; }
+
+/* Typo */
+.spec { border-radius: 28px; padding: 32px; display: grid; gap: 18px; min-width: 0; }
+.spec .big { font-size: clamp(72px, 10vw, 128px); line-height: .9; letter-spacing: -0.04em; overflow-wrap: anywhere; }
+.scale { display: grid; gap: 14px; }
+.scale div { display: grid; grid-template-columns: 64px 1fr; gap: 14px; align-items: baseline; border-top: 1px solid var(--trait); padding-top: 12px; min-width: 0; }
+.scale code { font-family: var(--mono); font-size: 11px; color: var(--fonte-60); }
+
+/* Pictos */
+.pictos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); gap: 14px; }
+.picto { background: var(--blanc); border-radius: 24px; aspect-ratio: 1; display: grid; place-items: center; align-content: center; gap: 8px; font-size: 13px; color: var(--fonte-60); max-width: 100%; }
+.picto svg { width: 58%; height: auto; }
+
+/* Icône app */
+.home { background: linear-gradient(160deg, #2D6A52, #1A3F30); border-radius: 36px; padding: 28px 22px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px 10px; max-width: 380px; width: 100%; justify-self: center; }
+.app { display: grid; justify-items: center; gap: 6px; font-size: 11px; color: #E9F1EC; font-weight: 600; }
+.app i { display: block; width: 100%; max-width: 62px; aspect-ratio: 1; border-radius: 22%; background: rgba(255,255,255,.14); }
+.app svg { width: 100%; max-width: 62px; height: auto; display: block; }
+.masks { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-end; }
+.masks figure { margin: 0; display: grid; gap: 8px; justify-items: center; font-family: var(--mono); font-size: 11px; color: var(--fonte-60); }
+
+/* UI */
+.phones { display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; }
+.phone { width: 300px; max-width: 100%; background: var(--faience); border-radius: 40px; border: 10px solid var(--fonte); overflow: hidden; display: flex; flex-direction: column; font-size: 13px; }
+.ph-top { padding: 22px 18px 14px; display: grid; gap: 12px; }
+.ph-row { display: flex; align-items: center; justify-content: space-between; }
+.ph-title { font-family: var(--display); font-weight: 800; font-size: 28px; letter-spacing: -0.03em; line-height: 1; }
+.days { display: flex; gap: 6px; }
+.day { flex: 1; background: var(--blanc); border-radius: 14px; padding: 6px 0; text-align: center; font-size: 10px; color: var(--fonte-60); display: grid; }
+.day b { font-family: var(--display); font-size: 16px; color: var(--fonte); }
+.day.on { background: var(--laurier); color: #BFD6C8; }
+.day.on b { color: var(--faience); }
+.ph-body { padding: 0 14px 14px; display: grid; gap: 10px; flex: 1; }
+.card { background: var(--blanc); border-radius: 20px; padding: 14px; display: grid; gap: 8px; }
+.ringcard { display: flex; gap: 14px; align-items: center; }
+.ringcard .t { font-family: var(--display); font-weight: 700; font-size: 16px; line-height: 1.15; }
+.ringcard .s { font-size: 12px; color: var(--fonte-60); }
+.meal { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--fonte-60); }
+.rname { font-family: var(--display); font-weight: 700; font-size: 17px; line-height: 1.15; letter-spacing: -0.01em; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 99px; background: var(--menthe); color: var(--laurier); }
+.chip.y { background: #FCEBB4; color: #7A5A06; }
+.chip.l { background: var(--lavande); color: var(--lavande-ink); }
+.qa { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 6px; }
+.qa span { text-align: center; border-radius: 12px; padding: 8px 0; font-weight: 700; font-size: 11px; background: var(--faience); }
+.qa .eat { background: var(--laurier); color: var(--faience); }
+.cta { background: var(--beurre); color: var(--fonte); font-weight: 700; border-radius: 18px; padding: 13px; text-align: center; font-size: 13px; }
+.nav { background: var(--blanc); display: grid; grid-template-columns: repeat(4, 1fr); padding: 10px 6px 14px; border-top: 1px solid var(--trait); }
+.nav span { display: grid; justify-items: center; gap: 3px; font-size: 10px; color: var(--fonte-60); font-weight: 600; }
+.nav span.on { color: var(--laurier); }
+.nav svg { width: 22px; height: 22px; }
+.list-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--faience); }
+.list-row:first-of-type { border-top: 0; }
+.ck { width: 22px; height: 22px; border-radius: 8px; border: 2px solid var(--trait); flex: none; }
+.ck.on { background: var(--laurier); border-color: var(--laurier); }
+.list-row .p { flex: 1; min-width: 0; }
+.list-row .p b { display: block; font-weight: 600; font-size: 13px; }
+.list-row .p small { color: var(--fonte-60); font-size: 11px; }
+.list-row.done .p b { text-decoration: line-through; color: var(--fonte-60); }
+.price { font-family: var(--mono); font-size: 12px; }
+
+/* Ton */
+.tone { display: grid; gap: 12px; }
+.say { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+.say div { border-radius: 20px; padding: 18px 20px; font-size: 15px; display: grid; gap: 6px; }
+.say .yes { background: var(--menthe); color: var(--laurier-700); }
+.say .no { background: var(--blanc); color: var(--fonte-60); }
+.say .yes b, .say .no b { font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.say .no q { text-decoration: line-through; text-decoration-color: var(--fonte-60); }
+q { quotes: "«\00a0" "\00a0»"; }
+footer { font-size: 13px; color: #9FBFAE; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+@media (prefers-reduced-motion: no-preference) {
+  .hero-mark .knob { transform-origin: 256px 256px; animation: lift 3.2s ease-in-out infinite; }
+  @keyframes lift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="mark" viewBox="0 0 512 512">
+      <rect x="44" y="214" width="104" height="84" rx="42" fill="#F7C948"/>
+      <rect x="364" y="214" width="104" height="84" rx="42" fill="#F7C948"/>
+      <circle cx="256" cy="256" r="158" fill="#F7C948"/>
+      <circle cx="256" cy="256" r="118" fill="none" stroke="#E3AE2A" stroke-width="14"/>
+      <path d="M150 178a130 130 0 0 1 62-50" stroke="#FFF6D6" stroke-width="16" stroke-linecap="round" fill="none"/>
+      <g class="knob"><circle cx="256" cy="256" r="40" fill="#1F4D3A"/><circle cx="244" cy="244" r="10" fill="#3E7A60"/></g>
+    </symbol>
+    <symbol id="mark-o" viewBox="44 98 424 316">
+      <rect x="44" y="214" width="104" height="84" rx="42" fill="currentColor"/>
+      <rect x="364" y="214" width="104" height="84" rx="42" fill="currentColor"/>
+      <circle cx="256" cy="256" r="158" fill="currentColor"/>
+      <circle cx="256" cy="256" r="40" fill="#F7C948"/>
+    </symbol>
+    <symbol id="icon" viewBox="0 0 512 512">
+      <rect width="512" height="512" fill="#1F4D3A"/>
+      <g transform="translate(36 36) scale(.86)"><use href="#mark"/></g>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- HERO -->
+<section class="band dark">
+  <div class="wrap">
+    <div class="hero">
+      <div style="display:grid;gap:22px;min-width:0">
+        <span class="eyebrow">Proposition de direction artistique · v1</span>
+        <span class="wm" aria-label="cocotte">c<svg class="o" viewBox="0 0 424 316" style="color:var(--beurre)"><use href="#mark-o"/></svg>cotte</span>
+        <p class="tagline">Bien manger, à ton rythme.</p>
+        <p class="lead">La nouvelle identité de FitMus. Une app de courses, de stock et de recettes qui prend soin de toi comme une bonne cocotte qui mijote : généreuse, solide, jamais pressée.</p>
+      </div>
+      <div class="hero-mark" role="img" aria-label="Symbole Cocotte : une cocotte vue de dessus"><svg viewBox="0 0 512 512"><use href="#mark"/></svg></div>
+    </div>
+  </div>
+</section>
+
+<!-- NOM -->
+<section class="band">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow">01 · Le nom</span>
+      <h2>Cocotte, parce que ça veut dire deux choses à la fois.</h2>
+      <p class="lead">Un mot du quotidien, très français, qui se retient en une fois. Il parle de cuisine sans parler de régime, et de tendresse sans être mièvre.</p>
+    </div>
+    <div class="name-why">
+      <div class="why"><span class="k">La marmite</span><p>La cocotte en fonte, c'est le batch cooking avant l'heure : un plat généreux qui nourrit plusieurs repas, avec peu d'ingrédients et un petit budget.</p></div>
+      <div class="why"><span class="k">« Ma cocotte »</span><p>Le petit nom affectueux. C'est exactement le ton de l'app : bienveillant, sans jugement, jamais d'alerte culpabilisante.</p></div>
+      <div class="why"><span class="k">La fonte</span><p>Solide, dense, faite pour durer. Une image juste pour la prise de masse : construire doucement, sur le long terme.</p></div>
+    </div>
+    <div class="alts"><span>Pistes écartées :</span><span class="alt">Mijote</span><span class="alt">Bocal</span><span class="alt">Garde-manger</span><span>Plus froides ou trop centrées sur un seul usage.</span></div>
+  </div>
+</section>
+
+<!-- SYMBOLE -->
+<section class="band white">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow">02 · Le symbole</span>
+      <h2>Une cocotte vue de dessus.</h2>
+      <p class="lead">Un cercle, deux anses, un bouton. Lisible à 16 px, assez simple pour être dessiné de mémoire, et il se lit aussi comme une assiette ou un soleil. Le bouton en vert laurier est le point d'attention : c'est lui qu'on anime.</p>
+    </div>
+    <div class="grid2">
+      <div class="construct" role="img" aria-label="Grille de construction du symbole">
+        <svg viewBox="0 0 512 512">
+          <g fill="none" stroke="#9FBFAE" stroke-width="2" stroke-dasharray="6 6">
+            <rect x="0.5" y="0.5" width="511" height="511"/>
+            <line x1="256" y1="0" x2="256" y2="512"/><line x1="0" y1="256" x2="512" y2="256"/>
+            <circle cx="256" cy="256" r="158"/><circle cx="256" cy="256" r="118"/><circle cx="256" cy="256" r="40"/>
+            <line x1="44" y1="0" x2="44" y2="512"/><line x1="468" y1="0" x2="468" y2="512"/>
+          </g>
+          <use href="#mark" opacity=".92"/>
+          <g font-family="JetBrains Mono, monospace" font-size="15" fill="#1F4D3A">
+            <text x="262" y="92">R 158</text><text x="262" y="132">R 118</text><text x="302" y="250">R 40</text><text x="52" y="330">anse 104 × 84</text>
+          </g>
+        </svg>
+      </div>
+      <div style="display:grid;gap:24px;align-content:start;min-width:0">
+        <div class="sizes">
+          <figure><svg width="128" height="128"><use href="#icon"/></svg>128</figure>
+          <figure><svg width="64" height="64" style="border-radius:14px"><use href="#icon"/></svg>64</figure>
+          <figure><svg width="32" height="32" style="border-radius:8px"><use href="#icon"/></svg>32</figure>
+          <figure><svg width="16" height="16" style="border-radius:4px"><use href="#icon"/></svg>16</figure>
+        </div>
+        <div class="rules">
+          <div class="rule"><b>1</b><span>Proportions sur une grille de 512 : corps R 158, couvercle R 118, bouton R 40. Les anses dépassent de 64 de chaque côté.</span></div>
+          <div class="rule"><b>2</b><span>Zone de protection égale au rayon du bouton tout autour du symbole.</span></div>
+          <div class="rule"><b>3</b><span>Toujours beurre sur laurier, ou laurier sur faïence. Jamais de dégradé, d'ombre ni de contour.</span></div>
+          <div class="rule"><b>4</b><span>Sous 32 px, on retire l'anneau du couvercle et le reflet : il reste la silhouette et le bouton.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LOGOTYPE -->
+<section class="band">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow">03 · Le logotype</span>
+      <h2>Le symbole remplace le « o ».</h2>
+      <p class="lead">Bricolage Grotesque ExtraBold en minuscules, approche resserrée à −4,5 %. Le premier « o » devient la cocotte, les anses débordent juste assez pour faire sourire le mot. Un seul geste, pas d'ornement en plus.</p>
+    </div>
+    <div class="grid2">
+      <div class="lock l1"><span class="wm">c<svg class="o" viewBox="0 0 424 316" style="color:var(--beurre)"><use href="#mark-o"/></svg>cotte</span><span class="caption">Principal · laurier</span></div>
+      <div class="lock l2"><span class="wm">c<svg class="o" viewBox="0 0 424 316" style="color:var(--laurier)"><use href="#mark-o"/></svg>cotte</span><span class="caption">Inversé · beurre</span></div>
+      <div class="lock l3"><div class="stack"><svg width="84" height="84"><use href="#mark"/></svg><span class="wm" style="color:var(--laurier)">cocotte</span></div><span class="caption">Empilé · écran de lancement</span></div>
+      <div class="lock l4"><span class="wm" style="font-size:clamp(40px,6vw,60px)">c<svg class="o" viewBox="0 0 424 316" style="color:var(--faience)"><use href="#mark-o"/></svg>cotte</span><span class="caption">Monochrome · fonte</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- COULEURS -->
+<section class="band white">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow">04 · Les couleurs</span>
+      <h2>Émail de cuisine, sans une goutte de rouge.</h2>
+      <p class="lead">Les couleurs d'une cocotte émaillée posée sur un carrelage de cuisine. Le jaune beurre ouvre l'appétit et porte les actions, le vert laurier donne la structure. Le rouge est exclu de toute la palette, y compris pour les états.</p>
+    </div>
+    <div class="swatches">
+      <div class="sw" style="background:var(--laurier);color:var(--faience)"><span class="n">Laurier</span><div><div class="h">#1F4D3A</div><div class="u">Structure, titres, navigation</div></div></div>
+      <div class="sw" style="background:var(--beurre);color:var(--fonte)"><span class="n">Beurre</span><div><div class="h">#F7C948</div><div class="u">Action principale, symbole</div></div></div>
+      <div class="sw" style="background:var(--faience);color:var(--fonte);border:1px solid var(--trait)"><span class="n">Faïence</span><div><div class="h">#EEF2EC</div><div class="u">Fond de l'app</div></div></div>
+      <div class="sw" style="background:var(--abricot);color:var(--fonte)"><span class="n">Abricot</span><div><div class="h">#F4A06B</div><div class="u">DLC proche, rappels doux</div></div></div>
+      <div class="sw" style="background:var(--lavande);color:var(--lavande-ink)"><span class="n">Lavande</span><div><div class="h">#CFC8EE</div><div class="u">« Écouté ma satiété »</div></div></div>
+      <div class="sw" style="background:var(--fonte);color:var(--faience)"><span class="n">Fonte</span><div><div class="h">#17201C</div><div class="u">Texte</div></div></div>
+    </div>
+    <div style="display:grid;gap:10px">
+      <span class="eyebrow">Répartition à l'écran</span>
+      <div class="ratio" role="img" aria-label="Faïence 55 %, blanc 20 %, laurier 14 %, beurre 6 %, abricot et lavande 5 %"><span style="width:55%;background:var(--faience);outline:1px solid var(--trait)"></span><span style="width:20%;background:#fff;outline:1px solid var(--trait)"></span><span style="width:14%;background:var(--laurier)"></span><span style="width:6%;background:var(--beurre)"></span><span style="width:3%;background:var(--abricot)"></span><span style="width:2%;background:var(--lavande)"></span></div>
+    </div>
+    <div class="note"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1F4D3A" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><span>Contrastes vérifiés : fonte sur faïence 14,7:1, faïence sur laurier 8,5:1, fonte sur beurre 10,6:1, lavande foncée sur lavande 5,6:1. Le beurre n'est jamais utilisé pour du texte sur fond clair.</span></div>
+  </div>
+</section>
+
+<!-- TYPO -->
+<section class="band">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow">05 · La typographie</span>
+      <h2>Une grotesque gourmande, une sans-serif qui se lit au rayon.</h2>
+    </div>
+    <div class="grid2">
+      <div class="spec" style="background:var(--laurier);color:var(--faience)">
+        <span class="eyebrow">Titres · Bricolage Grotesque</span>
+        <span class="big" style="font-family:var(--display);font-weight:800">Aa Gg</span>
+        <p style="color:#C9DCCF">Des formes rondes, un peu bricolées, qui donnent de la chaleur aux titres et aux noms de recettes. ExtraBold 800 pour les titres, Bold 700 pour les recettes.</p>
+      </div>
+      <div class="spec" style="background:var(--blanc)">
+        <span class="eyebrow">Interface · Plus Jakarta Sans</span>
+        <span class="big" style="font-family:var(--text);font-weight:600">Aa Gg</span>
+        <p style="color:var(--fonte-60)">Déjà en place dans l'app. Chiffres tabulaires pour les prix et les quantités, très lisible en plein magasin, d'une main.</p>
+      </div>
+    </div>
+    <div class="scale">
+      <div><code>32 / 800</code><span style="font-family:var(--display);font-weight:800;font-size:32px;letter-spacing:-0.03em;line-height:1.1">Ma semaine</span></div>
+      <div><code>20 / 700</code><span style="font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:-0.01em">Poulet curry coco, riz basmati</span></div>
+      <div><code>15 / 500</code><span style="font-size:15px;font-weight:500">Tout en stock · prêt en 20 min · 1,85 € la portion</span></div>
+      <div><code>11 / mono</code><span style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--fonte-60)">Dîner · Rayon frais · DLC J-2</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- PICTOS -->
+<section class="band white">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow">06 · Les pictos</span>
+      <h2>Le placard, en formes simples.</h2>
+      <p class="lead">Des aliments construits avec les mêmes briques que le symbole : cercles et pilules, deux couleurs maximum. Ils remplacent les emojis dans le stock et la liste de courses.</p>
+    </div>
+    <div class="pictos">
+      <div class="picto"><svg viewBox="0 0 64 64"><ellipse cx="32" cy="34" rx="20" ry="24" fill="#FFFFFF" stroke="#D5DDD5" stroke-width="2"/><circle cx="32" cy="38" r="9" fill="#F7C948"/></svg>Œufs</div>
+      <div class="picto"><svg viewBox="0 0 64 64"><g transform="rotate(-30 32 32)"><rect x="12" y="22" width="40" height="20" rx="10" fill="#F7C948"/><path d="M22 23v18M30 23v18M38 23v18M46 24v16" stroke="#E3AE2A" stroke-width="3"/></g></svg>Pâtes</div>
+      <div class="picto"><svg viewBox="0 0 64 64"><g fill="#FFFFFF" stroke="#D5DDD5" stroke-width="2"><ellipse cx="22" cy="26" rx="6" ry="11" transform="rotate(-20 22 26)"/><ellipse cx="40" cy="24" rx="6" ry="11" transform="rotate(25 40 24)"/><ellipse cx="32" cy="42" rx="6" ry="11" transform="rotate(80 32 42)"/></g></svg>Riz</div>
+      <div class="picto"><svg viewBox="0 0 64 64"><path d="M14 22c4 20 22 30 38 22" stroke="#F7C948" stroke-width="12" stroke-linecap="round" fill="none"/><circle cx="14" cy="21" r="3.5" fill="#1F4D3A"/></svg>Banane</div>
+      <div class="picto"><svg viewBox="0 0 64 64"><rect x="20" y="12" width="24" height="10" rx="4" fill="#1F4D3A"/><rect x="16" y="20" width="32" height="34" rx="10" fill="#FFFFFF" stroke="#D5DDD5" stroke-width="2"/><rect x="16" y="32" width="32" height="10" fill="#CFE6D6"/></svg>Lait</div>
+      <div class="picto"><svg viewBox="0 0 64 64"><path d="M14 36c0-12 9-20 20-20 10 0 16 7 16 15 0 11-10 19-22 19-8 0-14-5-14-14Z" fill="#F4A06B"/><path d="M24 32c4-4 10-5 16-2" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" fill="none" opacity=".7"/></svg>Poulet</div>
+    </div>
+  </div>
+</section>
+
+<!-- ICONE -->
+<section class="band">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow">07 · L'icône d'app</span>
+      <h2>Repérable en une seconde sur l'écran d'accueil.</h2>
+      <p class="lead">Le jaune sur vert ressort au milieu des icônes bleues et blanches. Fond plein jusqu'au bord pour que iOS et Android appliquent leur propre masque sans rogner les anses.</p>
+    </div>
+    <div class="grid2" style="align-items:center">
+      <div class="home" role="img" aria-label="Écran d'accueil de téléphone avec l'icône Cocotte">
+        <div class="app"><i></i>Photos</div><div class="app"><i></i>Plans</div><div class="app"><i></i>Météo</div><div class="app"><i></i>Notes</div>
+        <div class="app"><i></i>Musique</div><div class="app"><svg viewBox="0 0 512 512" style="border-radius:22%"><use href="#icon"/></svg>Cocotte</div><div class="app"><i></i>Horloge</div><div class="app"><i></i>Banque</div>
+        <div class="app"><i></i>Mail</div><div class="app"><i></i>Agenda</div><div class="app"><i></i>Santé</div><div class="app"><i></i>Réglages</div>
+      </div>
+      <div class="masks">
+        <figure><svg width="120" height="120" viewBox="0 0 512 512" style="border-radius:27px"><use href="#icon"/></svg>iOS</figure>
+        <figure><svg width="120" height="120" viewBox="0 0 512 512" style="border-radius:50%"><use href="#icon"/></svg>Android rond</figure>
+        <figure><svg width="120" height="120" viewBox="0 0 512 512" style="border-radius:38px 38px 38px 38px / 30px 30px 30px 30px"><use href="#icon"/></svg>Squircle</figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- UI -->
+<section class="band white">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow">08 · Dans l'app</span>
+      <h2>Les mêmes écrans, avec du caractère.</h2>
+      <p class="lead">La structure actuelle ne bouge pas. On change les tokens : fond faïence, titres en Bricolage, action principale en beurre, et le bouton de la cocotte devient l'indicateur de progression du jour.</p>
+    </div>
+    <div class="phones">
+      <div class="phone" aria-label="Écran Ma semaine">
+        <div class="ph-top">
+          <div class="ph-row"><span class="ph-title">Ma semaine</span><svg width="34" height="34" viewBox="0 0 512 512" style="border-radius:10px"><use href="#icon"/></svg></div>
+          <div class="days"><span class="day">lun<b>16</b></span><span class="day">mar<b>17</b></span><span class="day">mer<b>18</b></span><span class="day on">jeu<b>19</b></span><span class="day">ven<b>20</b></span><span class="day">sam<b>21</b></span></div>
+        </div>
+        <div class="ph-body">
+          <div class="card ringcard">
+            <svg width="58" height="58" viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="none" stroke="#EEF2EC" stroke-width="8"/><circle cx="32" cy="32" r="26" fill="none" stroke="#F7C948" stroke-width="8" stroke-linecap="round" stroke-dasharray="110 164" transform="rotate(-90 32 32)"/><circle cx="32" cy="32" r="9" fill="#1F4D3A"/></svg>
+            <div><div class="t">Belle journée, ça mijote</div><div class="s">1 680 kcal · repère souple 2 500</div></div>
+          </div>
+          <div class="card">
+            <span class="meal">Dîner · 19h30</span>
+            <span class="rname">Poulet curry coco, riz basmati</span>
+            <div class="chips"><span class="chip">Tout en stock</span><span class="chip y">Anti-gaspi : poulet</span></div>
+            <div class="qa"><span class="eat">Mangé</span><span>Dehors</span><span>Je passe</span></div>
+          </div>
+          <div class="card" style="gap:4px">
+            <span class="meal">Collation</span>
+            <div class="chips"><span class="chip l">Écouté ma satiété</span></div>
+          </div>
+          <div class="cta">Générer ma liste · 6 produits</div>
+        </div>
+        <div class="nav">
+          <span class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="4"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>Semaine</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 8h14l-1.5 10a2 2 0 0 1-2 1.7h-7A2 2 0 0 1 6.5 18Z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>Courses</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="7"/><path d="M3 13h2M19 13h2M12 6V4"/></svg>Recettes</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg>Moi</span>
+        </div>
+      </div>
+
+      <div class="phone" aria-label="Écran Courses">
+        <div class="ph-top">
+          <div class="ph-row"><span class="ph-title">Courses</span><span class="price" style="font-size:14px;font-weight:500">23,40 €</span></div>
+          <div class="chips"><span class="chip" style="background:var(--laurier);color:var(--faience)">Liste</span><span class="chip" style="background:#fff;color:var(--fonte-60)">Catalogue</span><span class="chip" style="background:#fff;color:var(--fonte-60)">Historique</span></div>
+        </div>
+        <div class="ph-body">
+          <div class="card">
+            <span class="meal">Rayon frais</span>
+            <div class="list-row done"><span class="ck on"></span><svg width="30" height="30" viewBox="0 0 64 64"><path d="M14 36c0-12 9-20 20-20 10 0 16 7 16 15 0 11-10 19-22 19-8 0-14-5-14-14Z" fill="#F4A06B"/></svg><span class="p"><b>Filets de poulet 600 g</b><small>Marque Repère</small></span><span class="price">5,49 €</span></div>
+            <div class="list-row"><span class="ck"></span><svg width="30" height="30" viewBox="0 0 64 64"><ellipse cx="32" cy="34" rx="20" ry="24" fill="#FFFFFF" stroke="#D5DDD5" stroke-width="2"/><circle cx="32" cy="38" r="9" fill="#F7C948"/></svg><span class="p"><b>Œufs plein air × 12</b><small>Marque Repère</small></span><span class="price">3,15 €</span></div>
+            <div class="list-row"><span class="ck"></span><svg width="30" height="30" viewBox="0 0 64 64"><rect x="20" y="12" width="24" height="10" rx="4" fill="#1F4D3A"/><rect x="16" y="20" width="32" height="34" rx="10" fill="#FFFFFF" stroke="#D5DDD5" stroke-width="2"/><rect x="16" y="32" width="32" height="10" fill="#CFE6D6"/></svg><span class="p"><b>Lait entier 1 L</b><small>Eco+</small></span><span class="price">1,09 €</span></div>
+          </div>
+          <div class="card">
+            <span class="meal">Épicerie salée</span>
+            <div class="list-row"><span class="ck"></span><svg width="30" height="30" viewBox="0 0 64 64"><g transform="rotate(-30 32 32)"><rect x="12" y="22" width="40" height="20" rx="10" fill="#F7C948"/><path d="M22 23v18M30 23v18M38 23v18M46 24v16" stroke="#E3AE2A" stroke-width="3"/></g></svg><span class="p"><b>Penne rigate 1 kg</b><small>Eco+</small></span><span class="price">0,99 €</span></div>
+            <div class="list-row"><span class="ck"></span><svg width="30" height="30" viewBox="0 0 64 64"><g fill="#FFFFFF" stroke="#D5DDD5" stroke-width="2"><ellipse cx="22" cy="26" rx="6" ry="11" transform="rotate(-20 22 26)"/><ellipse cx="40" cy="24" rx="6" ry="11" transform="rotate(25 40 24)"/><ellipse cx="32" cy="42" rx="6" ry="11" transform="rotate(80 32 42)"/></g></svg><span class="p"><b>Riz basmati 1 kg</b><small>Marque Repère</small></span><span class="price">2,35 €</span></div>
+          </div>
+          <div class="cta">J'ai fini mes courses</div>
+        </div>
+        <div class="nav">
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="4"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>Semaine</span>
+          <span class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 8h14l-1.5 10a2 2 0 0 1-2 1.7h-7A2 2 0 0 1 6.5 18Z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>Courses</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="7"/><path d="M3 13h2M19 13h2M12 6V4"/></svg>Recettes</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg>Moi</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TON -->
+<section class="band">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow">09 · Le ton</span>
+      <h2>On parle comme quelqu'un qui cuisine pour toi.</h2>
+      <p class="lead">Tutoiement, phrases courtes, images de cuisine. Aucun chiffre présenté comme une note, aucun mot qui juge.</p>
+    </div>
+    <div class="tone">
+      <div class="say"><div class="yes"><b>On dit</b><q>Belle journée, ça mijote.</q></div><div class="no"><b>On évite</b><q>Objectif atteint à 67 %.</q></div></div>
+      <div class="say"><div class="yes"><b>On dit</b><q>Écouté ma satiété.</q></div><div class="no"><b>On évite</b><q>Repas manqué.</q></div></div>
+      <div class="say"><div class="yes"><b>On dit</b><q>Le poulet aimerait être cuisiné demain.</q></div><div class="no"><b>On évite</b><q>Attention, produit bientôt périmé !</q></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="band dark">
+  <div class="wrap">
+    <footer><span class="wm" style="font-size:40px;color:var(--faience)">c<svg class="o" viewBox="0 0 424 316" style="color:var(--beurre)"><use href="#mark-o"/></svg>cotte</span><span>Direction artistique v1 · proposition pour FitMus · novembre 2026</span></footer>
+  </div>
+</section>
