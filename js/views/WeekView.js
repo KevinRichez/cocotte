@@ -8,7 +8,7 @@ import { today, addDays, weekStartOf, weekDays, dayShort, dayNum, relDay, dlcInf
 import { confirmAction } from '../lib/confirm.js';
 import {
   suggest, slotKcal, recipeLines, nutrition, kcalFmt, compileNeeds, isSlotPast, OUTSIDE_TAGS, urgentIngs,
-  isBlocked, nextFreeSlot, getRecipe, allRecipes, targets, dayTotals, norm, slotBudget, fmtPortion,
+  isBlocked, nextFreeSlot, getRecipe, allRecipes, targets, dayTotals, norm, slotBudget, fmtPortion, blockReason,
 } from '../lib/engine.js';
 import {
   markEaten, markDayEaten, adjustDayPortions, resetWeekPortions, groupLeftovers, markOutside, skipSlot, resetSlot, clearSlot, planRecipe, placeDeferred, dropDeferred, generateList, autofillWeek,
@@ -313,6 +313,10 @@ function PickerSheet({ ctx, s, onClose, onDetails }) {
   const sugg = suggest(s, { meal: ctx.meal, date: ctx.date, n: 4 });
   const nq = norm(q);
   const all = allRecipes(s).filter((r) => r.meals.includes(ctx.meal) && !isBlocked(s, r) && (!nq || norm(r.name).includes(nq)));
+  const weekStart = weekStartOf(ctx.date, s.profile.weekStart ?? 6);
+  const inWeek = [...new Set(weekDays(weekStart).flatMap((d) => MEAL_KEYS.map((m) => s.plan[d]?.[m]?.recipeId)).filter(Boolean))]
+    .map((id) => getRecipe(s, id)).filter((r) => r && (!nq || norm(r.name).includes(nq)) && r.id !== s.plan[ctx.date]?.[ctx.meal]?.recipeId);
+  const masked = nq ? allRecipes(s).filter((r) => norm(r.name).includes(nq) && isBlocked(s, r) && !inWeek.includes(r)) : [];
   const pick = (id, servings = 1) => { planRecipe(ctx.date, ctx.meal, id, {}, servings); setQ(''); onClose(); };
   const row = (r, reasons = [], servings = 1) => html`<div class="suggest" key=${r.id}>
     <button type="button" class="row grow" style="text-align:left;gap:10px;min-width:0" onClick=${() => onDetails(r.id, ctx)}>
@@ -327,9 +331,12 @@ function PickerSheet({ ctx, s, onClose, onDetails }) {
   </div>`;
   const { remaining } = slotBudget(s, ctx.date, ctx.meal);
   return html`<${Sheet} open=${true} onClose=${() => { setQ(''); onClose(); }} title=${`${MEALS[ctx.meal].emoji} ${MEALS[ctx.meal].label}`} subtitle=${`${relDay(ctx.date)} · reste ~${kcalFmt(remaining)} kcal pour atteindre l'objectif`}>
-    ${!nq && html`<div class="label">Suggestions pour atteindre ton objectif</div>${sugg.map((x) => row(x.recipe, x.reasons, x.servings))}`}
+    ${inWeek.length > 0 && html`<div class="label">Déjà dans ta semaine</div>${inWeek.map((r) => row(r))}`}
+    ${!nq && html`<div class="label" style="margin-top:12px">Suggestions pour atteindre ton objectif</div>${sugg.map((x) => row(x.recipe, x.reasons, x.servings))}`}
     <div class="search" style="margin:16px 0 10px"><${Icon} name="search" size=${18} />
       <input class="field" type="search" placeholder="Chercher une recette" value=${q} onInput=${(e) => setQ(e.currentTarget.value)} /></div>
     ${all.map((r) => row(r))}
+    ${masked.length > 0 && html`<div class="label" style="margin-top:12px">Masquées par tes réglages</div>
+      ${masked.map((r) => html`<div key=${r.id}>${row(r)}<div class="subtle xs" style="margin:-4px 0 8px 62px">${blockReason(s, r).label}</div></div>`)}`}
   </${Sheet}>`;
 }

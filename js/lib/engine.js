@@ -164,13 +164,14 @@ const roundQty = (q, unit) => (unit === 'pc' ? Math.round(q * 2) / 2 : Math.roun
 export function recipeLines(recipe, swaps = {}, servings = 1) {
   return recipe.ingredients.filter((l) => ING[l.ing]).map((line, idx) => {
     const to = swaps?.[idx];
+    if (to === '-') return null;
     if (to && to !== line.ing && ING[to]) {
       const from = ING[line.ing];
       const ratio = from.portion && ING[to].portion ? ING[to].portion / from.portion : 1;
       return { ...line, ing: to, qty: roundQty(line.qty * ratio * servings, ING[to].unit), swapped: line.ing, idx };
     }
     return { ...line, qty: roundQty(line.qty * servings, ING[line.ing].unit), idx };
-  });
+  }).filter(Boolean);
 }
 const nutriCache = new WeakMap();
 export function ingNutri(s, id) {
@@ -221,10 +222,33 @@ export function canCook(s, recipe) {
   const eq = s.profile.equipment || [];
   return recipe.equipment.every((e) => e === 'aucun' || eq.includes(e) || (e === 'plaques' && (eq.includes('poele') || eq.includes('casserole'))));
 }
-export function isBlocked(s, recipe, swaps = {}) {
-  if (recipeTier(s, recipe.id) === 'nogo') return true;
-  if (!canCook(s, recipe)) return true;
-  return recipeLines(recipe, swaps).some((l) => ingTier(s, l.ing) === 'nogo');
+// Un no-go en accompagnement est retiré (« sans maïs ») ou remplacé, au lieu de masquer toute la recette
+const SIDE_CATS = new Set(['legume', 'fruit', 'sale', 'epice', 'fromage', 'sucre', 'laitier']);
+export function autoSwaps(s, recipe) {
+  const out = {};
+  recipe.ingredients.filter((l) => ING[l.ing]).forEach((line, idx) => {
+    if (ingTier(s, line.ing) !== 'nogo') return;
+    const alt = swapOptions(line, s).find((id) => id !== line.ing && ingTier(s, id) !== 'nogo');
+    if (alt) out[idx] = alt;
+    else if (SIDE_CATS.has(ING[line.ing].cat) && idx > 0) out[idx] = '-';
+  });
+  return out;
+}
+export const removedIngs = (recipe, swaps = {}) => recipe.ingredients.filter((l) => ING[l.ing]).filter((_, idx) => swaps[idx] === '-').map((l) => l.ing);
+export function isBlocked(s, recipe, swaps) {
+  return !!blockReason(s, recipe, swaps);
+}
+// Pourquoi une recette est masquée : null si elle est visible
+export function blockReason(s, recipe, swaps) {
+  if (recipeTier(s, recipe.id) === 'nogo') return { type: 'recipe', label: 'Recette classée no-go' };
+  if (!canCook(s, recipe)) {
+    const eq = s.profile.equipment || [];
+    const missing = recipe.equipment.filter((e) => e !== 'aucun' && !eq.includes(e) && !(e === 'plaques' && (eq.includes('poele') || eq.includes('casserole'))));
+    return { type: 'equip', missing, label: `Il te manque : ${missing.join(', ')}` };
+  }
+  const sw = swaps && Object.keys(swaps).length ? swaps : autoSwaps(s, recipe);
+  const bad = recipeLines(recipe, sw).find((l) => ingTier(s, l.ing) === 'nogo');
+  return bad ? { type: 'nogo', label: `Contient un de tes no-go : ${ING[bad.ing].name.toLowerCase()}` } : null;
 }
 export const visibleRecipes = (s) => allRecipes(s).filter((r) => !isBlocked(s, r));
 

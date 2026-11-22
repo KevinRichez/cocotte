@@ -7,7 +7,7 @@ import { ING, fmtQty } from '../data/ingredients.js';
 import { today, addDays, dayShort, dayNum, relDay } from '../lib/dates.js';
 import {
   recipeLines, nutrition, linesCost, stockQty, swapOptions, budgetLevel, budgetLabel, euro, kcalFmt, nextFreeSlot,
-  getRecipe, recipeTier, ingTier, canCook, slotBudget, servingsFor, refProduct, photoFor, productTitle, fmtPortion, stockSubstitute, linkCandidates, pastStock, cleanName, nextMainSlot,
+  getRecipe, recipeTier, ingTier, canCook, slotBudget, servingsFor, refProduct, photoFor, productTitle, fmtPortion, stockSubstitute, linkCandidates, pastStock, cleanName, nextMainSlot, autoSwaps, removedIngs, blockReason,
 } from '../lib/engine.js';
 import { planRecipe, addIngsToList, setTier, deleteRecipe, relinkStockItem, setSlotServings, planLeftover } from '../actions.js';
 import { confirmAction } from '../lib/confirm.js';
@@ -27,7 +27,7 @@ export function RecipeSheet({ recipeId, onClose, target, slot: slotCtx }) {
     if (!r) return;
     const planned = slotCtx && s.plan[slotCtx.date]?.[slotCtx.meal];
     if (planned?.recipeId === r.id) { setSwaps(planned.swaps || {}); setServings(planned.servings || 1); setPick(slotCtx); return; }
-    setSwaps({});
+    setSwaps(autoSwaps(s, r));
     const slot = target || nextFreeSlot(s, r) || { date: today(), meal: r.meals[0] };
     setPick(slot);
     const { budget, dir } = slotBudget(s, slot.date, slot.meal);
@@ -92,6 +92,8 @@ export function RecipeSheet({ recipeId, onClose, target, slot: slotCtx }) {
     <div class="chips" style="margin-bottom:6px">${r.equipment.map((e) => html`<span class="badge neutral" style="height:28px">${EQUIPMENT[e]?.emoji} ${EQUIPMENT[e]?.label}</span>`)}</div>
 
     ${servings !== 1 && s.profile.autoPortions && !plannedHere && html`<div class="card tint-sage small" style="margin-top:4px">Pour ton objectif : <b>${fmtPortion(servings)}</b>, soit ${kcalFmt(per.kcal * servings)} kcal pour ce repas. C’est une seule portion, ${servings > 1 ? 'un peu plus grande' : 'un peu plus petite'} que la normale. Modifiable ci-dessous.</div>`}
+    ${blockReason(s, r, swaps) && html`<div class="card tint-slate small" style="margin-top:4px">Recette habituellement masquée : ${blockReason(s, r, swaps).label.toLowerCase()}.</div>`}
+    ${removedIngs(r, swaps).length > 0 && html`<div class="subtle small" style="margin:8px 2px 0">Sans ${removedIngs(r, swaps).map((i) => ING[i].name.toLowerCase()).join(', ')} (tes no-go)</div>`}
     <div class="section-title"><div class="h2">Ingrédients</div>
       <${Stepper} value=${servings} min=${0.25} max=${12} step=${0.25} onChange=${changeServings} format=${fmtPortion} />
     </div>

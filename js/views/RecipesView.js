@@ -1,11 +1,12 @@
 import { html, useState, useMemo } from '../lib/h.js';
 import { useStore } from '../store.js';
 import { Icon, Chip, Badge, Empty, Sheet, Seg, RecipeThumb } from '../components/ui.js';
+import { setProfile } from '../actions.js';
 import { RecipeSheet } from '../components/RecipeSheet.js';
 import { RecipeEditor } from '../components/RecipeEditor.js';
-import { MEALS, MEAL_KEYS } from '../data/recipes.js';
+import { MEALS, MEAL_KEYS, EQUIPMENT } from '../data/recipes.js';
 import { ING } from '../data/ingredients.js';
-import { recipeStats, stockMatch, isBlocked, budgetLevel, budgetLabel, kcalFmt, allRecipes, recipeTier, TIER_META, norm, euro } from '../lib/engine.js';
+import { recipeStats, stockMatch, isBlocked, budgetLevel, budgetLabel, kcalFmt, allRecipes, recipeTier, TIER_META, norm, euro, blockReason } from '../lib/engine.js';
 
 const NO_FILTERS = { time: null, budget: null, stock: false, tier: null, mine: false };
 
@@ -20,7 +21,8 @@ export function RecipesView() {
 
   const enriched = useMemo(() => allRecipes(s).map((r) => {
     const st = recipeStats(s, r);
-    return { r, ...st, match: stockMatch(s, st.lines), tier: recipeTier(s, r.id), blocked: isBlocked(s, r), budget: budgetLevel(st.cost) };
+    const why = blockReason(s, r);
+    return { r, ...st, match: stockMatch(s, st.lines), tier: recipeTier(s, r.id), blocked: !!why, why, budget: budgetLevel(st.cost) };
   }), [s.inventory, s.prefs, s.priceOverrides, s.customRecipes, s.profile.equipment, s.profile.stores]);
 
   const nq = norm(q);
@@ -33,7 +35,10 @@ export function RecipesView() {
     && (!f.tier || x.tier === f.tier)
     && (!f.mine || x.r.custom))
     .sort((a, b) => tierRank(a.tier) - tierRank(b.tier) || (f.stock ? b.match.ratio - a.match.ratio : 0) || a.r.time - b.r.time);
+  const hiddenList = enriched.filter((x) => x.blocked && (!nq || norm(x.r.name).includes(nq) || x.lines.some((l) => norm(ING[l.ing].name).includes(nq))) && (meal === 'all' || x.r.meals.includes(meal)));
   const hidden = enriched.filter((x) => x.blocked).length;
+  const [showHidden, setShowHidden] = useState(false);
+  const missingEquip = [...new Set(enriched.filter((x) => x.why?.type === 'equip').flatMap((x) => x.why.missing))];
   const active = [
     f.time && { k: 'time', label: `${f.time} min max` },
     f.budget && { k: 'budget', label: `${euro(f.budget)} max / portion` },
@@ -81,7 +86,17 @@ export function RecipesView() {
         </div>
       </button>`)}
     </div>
-    ${hidden > 0 && html`<p class="subtle center" style="margin-top:16px">${hidden} recette${hidden > 1 ? 's' : ''} masquée${hidden > 1 ? 's' : ''} (No-go ou matériel)</p>`}
+    ${hidden > 0 && html`<div class="card flat" style="margin-top:16px">
+      <button type="button" class="row between" style="width:100%" onClick=${() => setShowHidden(!showHidden)}>
+        <span class="small strong">${hidden} recette${hidden > 1 ? 's' : ''} masquée${hidden > 1 ? 's' : ''}${nq && hiddenList.length ? ` · ${hiddenList.length} pour « ${q.trim()} »` : ''}</span>
+        <${Icon} name=${showHidden || (nq && hiddenList.length) ? 'chevU' : 'chevD'} size=${16} /></button>
+      ${missingEquip.length > 0 && html`<div class="subtle xs" style="margin-top:6px">Matériel qui débloquerait des recettes :</div>
+        <div class="chips" style="margin-top:6px">${missingEquip.map((e) => html`<${Chip} sm onClick=${() => setProfile({ equipment: [...(s.profile.equipment || []), e] })}>+ J’ai : ${EQUIPMENT[e]?.emoji} ${EQUIPMENT[e]?.label || e}</${Chip}>`)}</div>`}
+      ${(showHidden || (nq && hiddenList.length > 0)) && html`<div class="list" style="margin-top:10px">${hiddenList.map((x) => html`<button type="button" class="list-item" style="width:100%;text-align:left" key=${x.r.id} onClick=${() => setOpen(x.r.id)}>
+        <${RecipeThumb} r=${x.r} cls="thumb sm" />
+        <div class="grow" style="min-width:0"><div class="small strong clamp2">${x.r.name}</div><div class="subtle xs">${x.why.label}</div></div>
+      </button>`)}</div>`}
+    </div>`}
 
     <${FiltersSheet} open=${filtersOpen} f=${f} setF=${setF} onClose=${() => setFiltersOpen(false)} count=${list.length} />
     <${RecipeSheet} recipeId=${open} onClose=${() => setOpen(null)} />

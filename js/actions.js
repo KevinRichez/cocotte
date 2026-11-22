@@ -4,7 +4,7 @@ import { MEALS, MEAL_KEYS, RECIPE } from './data/recipes.js';
 import { ING, guessIngredient } from './data/ingredients.js';
 import { today, relDay } from './lib/dates.js';
 import {
-  uid, recipeLines, consumeLines, restoreTaken, nextMainSlot, batchIngOf, equivOf, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
+  uid, recipeLines, consumeLines, restoreTaken, nextMainSlot, batchIngOf, equivOf, autoSwaps, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
   listItemInfo, listTotal, euro, getProduct, getRecipe, defaultProductFor, slotKcal, isSlotPast,
 } from './lib/engine.js';
 
@@ -12,6 +12,7 @@ const undoable = (prev, message) => toast(message, { action: 'Annuler', onAction
 const mealName = (m) => MEALS[m].label.toLowerCase();
 
 export function planRecipe(date, meal, recipeId, swaps = {}, servings = 1) {
+  if (!swaps || !Object.keys(swaps).length) { const r = getRecipe(getState(), recipeId); swaps = r ? autoSwaps(getState(), r) : {}; }
   const prev = update((d) => {
     d.plan[date] = d.plan[date] || {};
     d.plan[date][meal] = { recipeId, swaps, status: 'planned', ...(servings !== 1 ? { servings } : {}) };
@@ -106,7 +107,7 @@ export function autofillWeek(dates, suggestFn) {
         const best = suggestFn(d, date, meal);
         if (!best) continue;
         d.plan[date] = d.plan[date] || {};
-        d.plan[date][meal] = { recipeId: best.recipe.id, swaps: {}, status: 'planned', ...(best.servings !== 1 ? { servings: best.servings } : {}) };
+        d.plan[date][meal] = { recipeId: best.recipe.id, swaps: autoSwaps(d, best.recipe), status: 'planned', ...(best.servings !== 1 ? { servings: best.servings } : {}) };
         n++;
       }
     }
