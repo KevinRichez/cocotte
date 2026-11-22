@@ -455,6 +455,14 @@ function SettingsSheet({ open, onClose, s }) {
     <div class="chips">${WEEK_DAYS.map(([d, l]) => html`<${Chip} sm active=${ws === d} onClick=${() => setProfile({ weekStart: d })}>${l}</${Chip}>`)}</div>
 
     <div class="card flat" style="margin-top:16px">
+      <div class="row between" style="gap:12px">
+        <div><b class="small">Agrandir les portions automatiquement</b>
+          <div class="subtle xs">Désactivé : chaque recette est proposée pour 1 portion, tu ajustes toi-même.</div></div>
+        <${Chip} sm active=${!!s.profile.autoPortions} onClick=${() => setProfile({ autoPortions: !s.profile.autoPortions })}>${s.profile.autoPortions ? 'Oui' : 'Non'}</${Chip}>
+      </div>
+    </div>
+
+    <div class="card flat" style="margin-top:12px">
       <b class="small">Mes données</b>
       <div class="subtle xs" style="margin:2px 0 10px">Tout est stocké sur ton téléphone. Les recherches de produits en ligne passent par Open Food Facts.</div>
       <div class="row wrap" style="gap:8px">

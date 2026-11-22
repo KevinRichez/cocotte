@@ -4,13 +4,14 @@ import { Icon, Chip, Badge, Sheet, KcalGauge, RecipeThumb, PhotoButton } from '.
 import { RecipeSheet } from '../components/RecipeSheet.js';
 import { MEALS, MEAL_KEYS } from '../data/recipes.js';
 import { ING } from '../data/ingredients.js';
-import { today, addDays, weekStartOf, weekDays, dayShort, dayNum, relDay, dlcInfo } from '../lib/dates.js';
+import { today, addDays, weekStartOf, weekDays, dayShort, dayNum, relDay, dlcInfo, fmtShort } from '../lib/dates.js';
+import { confirmAction } from '../lib/confirm.js';
 import {
   suggest, slotKcal, recipeLines, nutrition, kcalFmt, compileNeeds, isSlotPast, OUTSIDE_TAGS, urgentIngs,
   isBlocked, nextFreeSlot, getRecipe, allRecipes, targets, dayTotals, norm, slotBudget, fmtPortion,
 } from '../lib/engine.js';
 import {
-  markEaten, markDayEaten, adjustDayPortions, markOutside, skipSlot, resetSlot, clearSlot, planRecipe, placeDeferred, dropDeferred, generateList, autofillWeek,
+  markEaten, markDayEaten, adjustDayPortions, resetWeekPortions, groupLeftovers, markOutside, skipSlot, resetSlot, clearSlot, planRecipe, placeDeferred, dropDeferred, generateList, autofillWeek,
 } from '../actions.js';
 
 export function WeekView() {
@@ -23,6 +24,7 @@ export function WeekView() {
   const [recipeOpen, setRecipeOpen] = useState(null);
   const [outside, setOutside] = useState(null);
   const [picker, setPicker] = useState(null);
+  const [tools, setTools] = useState(false);
 
   const shiftWeek = (n) => { const m = addDays(monday, n * 7); setMonday(m); setSel(weekDays(m).includes(t) ? t : m); };
   const futureDates = days.filter((d) => d >= t);
@@ -63,7 +65,7 @@ export function WeekView() {
 
     <div class="stack">
       ${MEAL_KEYS.map((meal) => html`<${SlotCard} key=${selected + meal} s=${s} date=${selected} meal=${meal}
-        onOpenRecipe=${(id) => setRecipeOpen({ id })}
+        onOpenRecipe=${(id) => setRecipeOpen({ id, slot: { date: selected, meal } })}
         onOutside=${() => setOutside({ date: selected, meal })}
         onPick=${() => setPicker({ date: selected, meal })} />`)}
     </div>
@@ -71,10 +73,28 @@ export function WeekView() {
     ${missing.length > 0 && html`<button type="button" class="btn ghost sm block" style="margin-top:14px" onClick=${() => generateList(futureDates)}>
       <${Icon} name="cart" size=${15} />${missing.length} produit${missing.length > 1 ? 's' : ''} à acheter pour tes repas · Ajouter à ma liste</button>`}
 
-    <${RecipeSheet} recipeId=${recipeOpen?.id} target=${recipeOpen?.target} onClose=${() => setRecipeOpen(null)} />
+    <button type="button" class="btn ghost sm block" style="margin-top:10px" onClick=${() => setTools(true)}><${Icon} name="sliders" size=${15} />Outils de la semaine</button>
+    <${WeekTools} open=${tools} days=${days} onClose=${() => setTools(false)} />
+    <${RecipeSheet} recipeId=${recipeOpen?.id} target=${recipeOpen?.target} slot=${recipeOpen?.slot} onClose=${() => setRecipeOpen(null)} />
     <${OutsideSheet} ctx=${outside} s=${s} onClose=${() => setOutside(null)} />
     <${PickerSheet} ctx=${picker} s=${s} onClose=${() => setPicker(null)} onDetails=${(id, target) => { setPicker(null); setRecipeOpen({ id, target }); }} />
   </div>`;
+}
+
+function WeekTools({ open, days, onClose }) {
+  const run = async (fn, title, message, confirm) => {
+    if (await confirmAction({ title, message, confirm })) { fn(days); onClose(); }
+  };
+  return html`<${Sheet} open=${open} onClose=${onClose} title="Outils de la semaine" subtitle=${`Du ${fmtShort(days[0])} au ${fmtShort(days[6])}`}>
+    <button type="button" class="card tappable" style="width:100%;text-align:left" onClick=${() => run(groupLeftovers, 'Regrouper en restes ?', 'Quand deux repas de suite utilisent la même barquette (poulet, jambon, viande hachée…), le second devient le même plat : soir puis midi du lendemain. Sauvegarde automatique avant.', 'Regrouper')}>
+      <div class="strong small">♻️ Regrouper les plats en restes</div>
+      <div class="subtle xs" style="margin-top:2px">Une barquette ouverte se cuit d’un coup : tu manges le même plat deux fois au lieu de deux plats différents.</div>
+    </button>
+    <button type="button" class="card tappable" style="width:100%;text-align:left;margin-top:10px" onClick=${() => run(resetWeekPortions, 'Toutes les portions à 1 ?', 'Les repas prévus de la semaine repassent à une portion normale. Sauvegarde automatique avant.', 'Tout à 1 portion')}>
+      <div class="strong small">🍽️ Remettre toutes les portions à 1</div>
+      <div class="subtle xs" style="margin-top:2px">Plus de « +25 % » : tu ajustes toi-même un repas si tu veux.</div>
+    </button>
+  </${Sheet}>`;
 }
 
 function DaySummary({ s, date }) {
@@ -213,6 +233,7 @@ function SlotCard({ s, date, meal, onOpenRecipe, onOutside, onPick }) {
         <span>${Math.round(k.prot)} g prot.</span>
         ${slot.servings && slot.servings !== 1 && html`<span>${fmtPortion(slot.servings)}</span>`}
         ${Object.values(slot.swaps || {}).some(Boolean) && html`<span><${Icon} name="swap" size=${12} />adapté</span>`}
+        ${slot.leftover && html`<span>♻️ reste</span>`}
       </div>
     </div>
     <${Icon} name="chevR" size=${18} class="muted" />

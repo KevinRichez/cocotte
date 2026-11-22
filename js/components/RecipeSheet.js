@@ -7,12 +7,12 @@ import { ING, fmtQty } from '../data/ingredients.js';
 import { today, addDays, dayShort, dayNum, relDay } from '../lib/dates.js';
 import {
   recipeLines, nutrition, linesCost, stockQty, swapOptions, budgetLevel, budgetLabel, euro, kcalFmt, nextFreeSlot,
-  getRecipe, recipeTier, ingTier, canCook, slotBudget, servingsFor, refProduct, photoFor, productTitle, fmtPortion, stockSubstitute, linkCandidates, pastStock, cleanName,
+  getRecipe, recipeTier, ingTier, canCook, slotBudget, servingsFor, refProduct, photoFor, productTitle, fmtPortion, stockSubstitute, linkCandidates, pastStock, cleanName, nextMainSlot,
 } from '../lib/engine.js';
-import { planRecipe, addIngsToList, setTier, deleteRecipe, relinkStockItem } from '../actions.js';
+import { planRecipe, addIngsToList, setTier, deleteRecipe, relinkStockItem, setSlotServings, planLeftover } from '../actions.js';
 import { confirmAction } from '../lib/confirm.js';
 
-export function RecipeSheet({ recipeId, onClose, target }) {
+export function RecipeSheet({ recipeId, onClose, target, slot: slotCtx }) {
   const s = useStore();
   const r = getRecipe(s, recipeId);
   const [swaps, setSwaps] = useState({});
@@ -23,12 +23,15 @@ export function RecipeSheet({ recipeId, onClose, target }) {
   const [editing, setEditing] = useState(false);
 
   useEffect(() => {
-    setSwaps({}); setSwapIdx(null); setPicking(false); setEditing(false);
+    setSwapIdx(null); setPicking(false); setEditing(false);
     if (!r) return;
+    const planned = slotCtx && s.plan[slotCtx.date]?.[slotCtx.meal];
+    if (planned?.recipeId === r.id) { setSwaps(planned.swaps || {}); setServings(planned.servings || 1); setPick(slotCtx); return; }
+    setSwaps({});
     const slot = target || nextFreeSlot(s, r) || { date: today(), meal: r.meals[0] };
     setPick(slot);
     const { budget, dir } = slotBudget(s, slot.date, slot.meal);
-    setServings(servingsFor(nutrition(recipeLines(r), s).kcal, budget, dir));
+    setServings(s.profile.autoPortions ? servingsFor(nutrition(recipeLines(r), s).kcal, budget, dir) : 1);
   }, [recipeId]);
 
   const lines = useMemo(() => (r ? recipeLines(r, swaps, servings) : []), [r, swaps, servings]);
@@ -38,7 +41,10 @@ export function RecipeSheet({ recipeId, onClose, target }) {
   const cost = linesCost(s, base);
   const missing = lines.filter((l) => !ING[l.ing].staple && stockQty(s, l.ing) < l.qty).map((l) => l.ing);
   const tier = recipeTier(s, r.id);
+  const plannedHere = slotCtx && s.plan[slotCtx.date]?.[slotCtx.meal]?.recipeId === r.id ? slotCtx : null;
   const confirm = () => { planRecipe(pick.date, pick.meal, r.id, swaps, servings); onClose(); };
+  const changeServings = (v) => { setServings(v); if (plannedHere) setSlotServings(plannedHere.date, plannedHere.meal, v); };
+  const nextSlot = plannedHere && nextMainSlot(plannedHere.date, plannedHere.meal);
   const days = Array.from({ length: 7 }, (_, i) => addDays(today(), i));
 
   const footer = picking
@@ -48,6 +54,10 @@ export function RecipeSheet({ recipeId, onClose, target }) {
         ${s.plan[pick?.date]?.[pick?.meal] && html`<div class="subtle">Ce créneau a déjà un repas : il sera remplacé.</div>`}
         <div class="row"><button type="button" class="btn ghost" onClick=${() => setPicking(false)}>Retour</button>
           <button type="button" class="btn primary grow" disabled=${!pick} onClick=${confirm}><${Icon} name="check" size=${18} />Valider</button></div>
+      </div>`
+    : plannedHere ? html`<div class="row">
+        ${nextSlot && html`<button type="button" class="btn ghost" onClick=${() => { planLeftover(plannedHere.date, plannedHere.meal); onClose(); }}><${Icon} name="refresh" size=${16} />En double : ${plannedHere.meal === 'diner' ? 'demain midi' : 'ce soir'}</button>`}
+        <button type="button" class="btn primary grow lg" onClick=${onClose}><${Icon} name="check" size=${18} />OK</button>
       </div>`
     : html`<div class="row">
         ${missing.length > 0 && html`<button type="button" class="btn ghost" onClick=${() => addIngsToList(missing)} aria-label="Ajouter les manquants à la liste"><${Icon} name="cart" size=${18} />${missing.length}</button>`}
@@ -81,9 +91,9 @@ export function RecipeSheet({ recipeId, onClose, target }) {
     </div>
     <div class="chips" style="margin-bottom:6px">${r.equipment.map((e) => html`<span class="badge neutral" style="height:28px">${EQUIPMENT[e]?.emoji} ${EQUIPMENT[e]?.label}</span>`)}</div>
 
-    ${servings !== 1 && html`<div class="card tint-sage small" style="margin-top:4px">Pour ton objectif : <b>${fmtPortion(servings)}</b>, soit ${kcalFmt(per.kcal * servings)} kcal pour ce repas. C’est une seule portion, ${servings > 1 ? 'un peu plus grande' : 'un peu plus petite'} que la normale. Modifiable ci-dessous.</div>`}
+    ${servings !== 1 && s.profile.autoPortions && !plannedHere && html`<div class="card tint-sage small" style="margin-top:4px">Pour ton objectif : <b>${fmtPortion(servings)}</b>, soit ${kcalFmt(per.kcal * servings)} kcal pour ce repas. C’est une seule portion, ${servings > 1 ? 'un peu plus grande' : 'un peu plus petite'} que la normale. Modifiable ci-dessous.</div>`}
     <div class="section-title"><div class="h2">Ingrédients</div>
-      <${Stepper} value=${servings} min=${0.5} max=${12} step=${0.5} onChange=${setServings} format=${fmtPortion} />
+      <${Stepper} value=${servings} min=${0.25} max=${12} step=${0.25} onChange=${changeServings} format=${fmtPortion} />
     </div>
     <div class="list">
       ${lines.map((l) => {

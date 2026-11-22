@@ -34,7 +34,7 @@ const BACKUP_MAX = 4;
 export function listBackups() {
   try { const b = JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]'); return Array.isArray(b) ? b.filter((x) => isObj(x) && isObj(x.state)) : []; } catch { return []; }
 }
-const hasContent = (s) => s && (s.inventory?.length || s.history?.length);
+const hasContent = (s) => s && (s.inventory?.length || s.history?.length || Object.keys(s.plan || {}).length);
 export function backupNow(s = state, reason = 'auto') {
   if (!hasContent(s)) return;
   let list = listBackups();

@@ -365,11 +365,30 @@ export function servingsFor(kcal, budget, dir) {
   return Math.min(max, Math.max(min, Math.round(raw * 4) / 4));
 }
 
+// Protéines qu'on cuit d'un coup une fois la barquette ouverte : on mange le même plat deux fois
+export const BATCH_INGS = new Set(['poulet', 'cuisse_poulet', 'dinde', 'emince_boeuf', 'hache_boeuf', 'dinde_hachee', 'jambon', 'jambon_cru', 'blanc_dinde', 'lardons', 'saumon', 'cabillaud', 'poisson_blanc', 'crevettes', 'chair_saucisse', 'boeuf_bourguignon', 'veau', 'roti_porc', 'poulet_entier']);
+export const batchIngOf = (r) => r?.ingredients?.map((x) => x.ing).find((i) => BATCH_INGS.has(i)) || null;
+// Le créneau principal suivant : soir puis midi du lendemain
+export function nextMainSlot(date, meal) {
+  if (meal === 'dej') return { date, meal: 'diner' };
+  if (meal === 'diner') return { date: addDays(date, 1), meal: 'dej' };
+  return null;
+}
+export function prevMainSlot(date, meal) {
+  if (meal === 'diner') return { date, meal: 'dej' };
+  if (meal === 'dej') return { date: addDays(date, -1), meal: 'diner' };
+  return null;
+}
+
 export function suggest(s, { meal, date, n = 3, exclude = [], budget: forced }) {
   const t = targets(s.profile);
   const target = meal ? (forced ?? (date ? slotBudget(s, date, meal).budget : t.kcal * MEAL_SHARE[meal])) : null;
   const weekIds = weekRecipeIds(s, mondayOf(date || today()));
   const urgent = urgentIngs(s);
+  const prev = date && meal ? prevMainSlot(date, meal) : null;
+  const prevSlot = prev && s.plan[prev.date]?.[prev.meal];
+  const prevRecipe = prevSlot && (prevSlot.status === 'planned' || prevSlot.status === 'eaten') && !prevSlot.leftover ? getRecipe(s, prevSlot.recipeId) : null;
+  const leftoverId = prevRecipe && batchIngOf(prevRecipe) ? prevRecipe.id : null;
   return allRecipes(s)
     .filter((r) => (!meal || r.meals.includes(meal)) && !exclude.includes(r.id) && !isBlocked(s, r))
     .map((r) => {
@@ -392,8 +411,9 @@ export function suggest(s, { meal, date, n = 3, exclude = [], budget: forced }) 
       const defi = ings.find((x) => ingTier(s, x) === 'doux');
       if (defi) { score += 0.4; reasons.push({ label: `Défi doux : ${ING[defi].name.toLowerCase()}`, tone: 'lav' }); }
       let servings = 1;
+      if (r.id === leftoverId) { score += 8; reasons.unshift({ label: prev.meal === 'diner' ? 'Reste d’hier soir' : 'Reste de ce midi', tone: 'sage' }); }
       if (target) {
-        servings = servingsFor(base.kcal, target, t.dir);
+        servings = s.profile.autoPortions ? servingsFor(base.kcal, target, t.dir) : 1;
         const gap = Math.abs(base.kcal * servings - target) / Math.max(target, 200);
         score += 3 - Math.min(gap, 1.5) * 4;
         score += (base.prot / Math.max(base.kcal, 1)) * (t.dir === 'lose' ? 40 : 15);

@@ -1,10 +1,10 @@
-import { update, restore, getState } from './store.js';
+import { update, restore, getState, backupNow } from './store.js';
 import { toast } from './lib/toast.js';
 import { MEALS, MEAL_KEYS, RECIPE } from './data/recipes.js';
 import { ING, guessIngredient } from './data/ingredients.js';
 import { today, relDay } from './lib/dates.js';
 import {
-  uid, recipeLines, consumeLines, restoreTaken, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
+  uid, recipeLines, consumeLines, restoreTaken, nextMainSlot, batchIngOf, equivOf, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
   listItemInfo, listTotal, euro, getProduct, getRecipe, defaultProductFor, slotKcal, isSlotPast,
 } from './lib/engine.js';
 
@@ -319,6 +319,56 @@ export function deleteRecipe(id, { restoreOriginal } = {}) {
   });
   undoable(prev, restoreOriginal ? 'Recette d’origine rétablie' : 'Recette supprimée');
 }
+// Cuisiner en double : le même plat au créneau suivant (soir puis midi du lendemain)
+export function planLeftover(date, meal) {
+  const s = getState();
+  const slot = s.plan[date]?.[meal];
+  const next = nextMainSlot(date, meal);
+  if (!slot?.recipeId || !next) return;
+  const prev = update((d) => {
+    d.plan[next.date] = d.plan[next.date] || {};
+    d.plan[next.date][next.meal] = { recipeId: slot.recipeId, swaps: slot.swaps || {}, status: 'planned', leftover: true, ...(slot.servings ? { servings: slot.servings } : {}) };
+  });
+  undoable(prev, `Reste prévu · ${relDay(next.date)}, ${mealName(next.meal)}`);
+}
+
+// Semaine : toutes les portions à 1 (une sauvegarde automatique est faite avant)
+export function resetWeekPortions(dates) {
+  backupNow(getState(), 'avant');
+  let n = 0;
+  const prev = update((d) => {
+    for (const date of dates) for (const m of MEAL_KEYS) {
+      const slot = d.plan[date]?.[m];
+      if (slot?.servings && slot.servings !== 1 && slot.status === 'planned') { delete slot.servings; n++; }
+    }
+  });
+  if (n) undoable(prev, `${n} portion${n > 1 ? 's' : ''} remise${n > 1 ? 's' : ''} à 1`);
+  else toast('Toutes les portions sont déjà à 1');
+}
+
+// Semaine : deux plats différents avec la même barquette de suite deviennent le même plat (soir + midi du lendemain)
+export function groupLeftovers(dates) {
+  backupNow(getState(), 'avant');
+  let n = 0;
+  const prev = update((d) => {
+    const seq = dates.flatMap((date) => ['dej', 'diner'].map((meal) => ({ date, meal })));
+    for (let i = 0; i < seq.length - 1; i++) {
+      const a = d.plan[seq[i].date]?.[seq[i].meal];
+      const b = d.plan[seq[i + 1].date]?.[seq[i + 1].meal];
+      if (!a || !b || b.status !== 'planned' || a.status === 'skipped' || a.status === 'outside') continue;
+      const ra = getRecipe(d, a.recipeId), rb = getRecipe(d, b.recipeId);
+      const pa = batchIngOf(ra), pb = batchIngOf(rb);
+      if (!pa || !pb || ra.id === rb.id) { if (ra && rb && ra.id === rb.id) i++; continue; }
+      const same = pa === pb || equivOf(pa).includes(pb);
+      if (!same) continue;
+      d.plan[seq[i + 1].date][seq[i + 1].meal] = { recipeId: ra.id, swaps: a.swaps || {}, status: 'planned', leftover: true, ...(a.servings ? { servings: a.servings } : {}) };
+      n++; i++;
+    }
+  });
+  if (n) undoable(prev, `${n} plat${n > 1 ? 's' : ''} regroupé${n > 1 ? 's' : ''} en restes`);
+  else toast('Rien à regrouper cette semaine');
+}
+
 export function setSlotServings(date, meal, servings) {
   update((d) => {
     const slot = d.plan[date]?.[meal];
