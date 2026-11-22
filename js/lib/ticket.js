@@ -1,4 +1,4 @@
-import { INGREDIENTS, ING } from '../data/ingredients.js';
+import { INGREDIENTS, ING, matchIngredientText } from '../data/ingredients.js';
 
 const STOP = new Set(['les', 'des', 'aux', 'avec', 'sans', 'pour', 'bte', 'btl', 'slee', 'sleek', 'pet', 'fl', 'ls', 'jard', 'pack', 'lot', 'format', 'familial', 'maxi', 'offre', 'sachet', 'barquette', 'bocal', 'boite', 'extra', 'origine', 'france', 'label', 'ses', 'the']);
 const wordsOf = (s) => s.split(/[^a-z0-9%]+/).filter(Boolean);
@@ -11,28 +11,8 @@ const ING_INDEX = INGREDIENTS.map((ing) => ({
 }));
 
 export function matchIngredient(label) {
-  const t = norm(label).replace(BRAND_TOKENS, ' ');
-  const pct = t.match(/(\d+)\s?%/)?.[1];
-  const words = wordsOf(t.replace(/\d+\s?x\s?\d+\s?(g|kg|cl|ml|l)?\b|\d+([.,]\d+)?\s?(kg|g|gr|l|cl|ml)\b|\bx\s?\d+\b|\d+\s?%|\b\d+\b/g, ' '))
-    .filter((w) => w.length >= 3 && !STOP.has(w) && !/^\d/.test(w));
-  if (!words.length) return null;
-  let best = null;
-  for (const { ing, keys, name, pcts } of ING_INDEX) {
-    const matched = words.filter((w) => keys.some((k) => wmatch(w, k)));
-    if (!matched.length) continue;
-    let score = matched.reduce((n, w) => n + (w.length > 5 ? 2 : 1), 0);
-    if (pct && pcts.length) score += pcts.includes(`${pct}%`) ? 3 : -3;
-    const nameHits = name.filter((n) => words.some((w) => wmatch(w, n))).length;
-    if (!nameHits) score -= 1;
-    const first = keys.some((k) => wmatch(words[0], k));
-    if (first) score += 1;
-    const coverage = matched.length / words.length;
-    const ok = score >= 3 || (score >= 1 && coverage >= 0.5) || (first && score >= 2);
-    if (!ok) continue;
-    const rank = score + coverage + (name.length ? nameHits / name.length : 0);
-    if (!best || rank > best.rank) best = { id: ing.id, rank };
-  }
-  return best?.id || null;
+  const t = norm(label).replace(BRAND_TOKENS, ' ').replace(/\d+\s?x\s?\d+\s?(g|kg|cl|ml|l)?\b|\d+([.,]\d+)?\s?(kg|g|gr|l|cl|ml)\b|\bx\s?\d+\b/g, ' ');
+  return matchIngredientText(t);
 }
 
 const NONFOOD_SECTION = /maison|entretien|hygiene|parfumerie|bazar|droguerie|textile|animal|jardin|papeterie|electro|multimedia|jouet|culture|auto/;
@@ -106,7 +86,10 @@ const ACCENTS = {
 };
 
 export function prettyName(label) {
-  let s = norm(label).replace(BRAND_TOKENS, ' ');
+  let s = norm(label).replace(BRAND_TOKENS, ' ')
+    .replace(/\b1\/2\b|\bdemi[- ]?/g, ' demi-')
+    .replace(/-?\d+\s?%\s?(de\s)?sel\b/g, ' sel reduit ')
+    .replace(/\bold el paso\b|\bhdf\b|\bhaute distinction francaise\b/g, ' ');
   s = s.replace(/\b\d{1,2}\s?x\s?\d+([.,]\d+)?\s?(kg|g|gr|cl|ml|l)\b/g, ' ')
     .replace(/\b\d+([.,]\d+)?\s?(kg|g|gr|grs|cl|ml|l)\b/g, ' ')
     .replace(/\bx\s?\d+(=\d+)?\b/g, ' ').replace(/\b\d{1,2}\s?x\b/g, ' ')
@@ -116,9 +99,9 @@ export function prettyName(label) {
   const fix = (w) => (Object.prototype.hasOwnProperty.call(ABBREV, w) ? ABBREV[w] : ACCENTS[w] || w);
   const words = s.split(/\s+/).filter(Boolean)
     .filter((w) => !DROP_WORDS.has(w) && !/\d/.test(w))
-    .map((w) => (w.includes("'") && !Object.prototype.hasOwnProperty.call(ABBREV, w) ? w.split("'").map(fix).join("'") : fix(w)))
+    .map((w) => (w.includes("'") && !Object.prototype.hasOwnProperty.call(ABBREV, w) ? w.split("'").map(fix).join("'") : w.includes('-') && w.length > 1 ? w.split('-').map((x) => (x ? fix(x) : x)).join('-') : fix(w)))
     .filter(Boolean);
-  const out = words.join(' ').replace(/\s{2,}/g, ' ').trim();
+  const out = words.join(' ').replace(/demi- /g, 'demi-').replace(/(^|\s)-(\s|$)/g, ' ').replace(/\s{2,}/g, ' ').trim();
   return out ? out.charAt(0).toUpperCase() + out.slice(1) : label;
 }
 

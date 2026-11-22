@@ -8,7 +8,7 @@ import { STORES, storeLabel, packLabel } from '../data/products.js';
 import { EQUIPMENT, COOKING_EQUIPMENT } from '../data/recipes.js';
 import { dlcInfo, fmtShort, addDays, today } from '../lib/dates.js';
 import { kcalFmt, targets, GOAL_LABEL, getProduct, estimateDlc, TIER_META, TIER_KEYS, allRecipes, norm, cleanName, productTitle, productSize } from '../lib/engine.js';
-import { addStock, updateStockItem, removeStockItem, setTier, setProfile, enrichFromScan, resetStockAndHistory, restockCandidates, restockProducts, relinkStockItem, setProductSize } from '../actions.js';
+import { addStock, updateStockItem, removeStockItem, setTier, setProfile, enrichFromScan, resetStockAndHistory, restockCandidates, restockProducts, relinkStockItem, setProductSize, updateProduct, deleteProduct } from '../actions.js';
 import { toast } from '../lib/toast.js';
 import { confirmAction } from '../lib/confirm.js';
 import { PRODUCE_CREDITS } from '../data/produce.js';
@@ -38,10 +38,11 @@ export function ProfileView() {
     <div style="margin-top:16px">
       <${Seg} value=${tab} onChange=${(v) => update((d) => { d.ui.profileTab = v; })} options=${[
         { value: 'stock', label: 'Placards & frigo' },
+        { value: 'products', label: 'Mes produits' },
         { value: 'prefs', label: 'Préférences' },
       ]} />
     </div>
-    ${tab === 'stock' ? html`<${StockTab} s=${s} />` : html`<${PrefsTab} s=${s} />`}
+    ${tab === 'stock' ? html`<${StockTab} s=${s} />` : tab === 'products' ? html`<${ProductsTab} s=${s} />` : html`<${PrefsTab} s=${s} />`}
     <${ProfileSheet} open=${goalOpen} onClose=${() => setGoalOpen(false)} s=${s} />
   </div>`;
 }
@@ -202,15 +203,81 @@ function AddStockSheet({ open, s, onClose }) {
   </${Sheet}>`;
 }
 
+function ProductsTab({ s }) {
+  const [q, setQ] = useState('');
+  const [edit, setEdit] = useState(null);
+  const ids = [...new Set([...s.customProducts.map((p) => p.id).reverse(), ...Object.keys(s.productOverrides || {})])];
+  const nq = norm(q);
+  const list = ids.map((id) => getProduct(s, id)).filter((p) => p && (!nq || norm(`${productTitle(p)} ${p.name || ''} ${ING[p.ing]?.name || ''}`).includes(nq)));
+  return html`<div style="margin-top:14px">
+    <p class="subtle" style="margin:0 2px 10px">Toutes tes fiches enregistrées (tickets, scans, créations), même hors stock. Touche-en une pour corriger son nom, son format ou son aliment.</p>
+    <div class="search"><${Icon} name="search" size=${18} />
+      <input class="field" type="search" placeholder="Chercher dans mes produits" value=${q} onInput=${(e) => setQ(e.currentTarget.value)} /></div>
+    ${list.length === 0 && html`<${Empty} emoji="🧾" title="Aucune fiche">Importe un ticket ou scanne un produit.</${Empty}>`}
+    <div class="list" style="margin-top:10px">${list.map((p) => html`<button type="button" class="list-item" style="width:100%;text-align:left" key=${p.id} onClick=${() => setEdit(p.id)}>
+      <${Thumb} p=${p} cls="thumb sm stock-thumb" />
+      <div class="grow" style="min-width:0"><div class="small strong clamp2">${productTitle(p)}</div>
+        <div class="subtle xs">${[productSize(p), p.ing ? ING[p.ing]?.name : 'Aucun aliment', p.ignored ? 'ignoré' : ''].filter(Boolean).join(' · ')}</div></div>
+      <${Icon} name="edit" size=${15} class="muted" />
+    </button>`)}</div>
+    <${ProductEditSheet} id=${edit} s=${s} onClose=${() => setEdit(null)} />
+  </div>`;
+}
+
+export function ProductEditSheet({ id, s, onClose }) {
+  const [scanning, setScanning] = useState(false);
+  const p = id && getProduct(s, id);
+  if (!p) return html`<${Sheet} open=${false} />`;
+  const unit = p.unit || ING[p.ing]?.unit || 'pc';
+  const del = async () => {
+    if (await confirmAction({ title: 'Supprimer cette fiche ?', message: 'Les produits déjà en stock restent, mais ne seront plus reliés à cette fiche.', confirm: 'Supprimer' })) { deleteProduct(p.id); onClose(); }
+  };
+  return html`<${Sheet} open=${true} onClose=${onClose} title="Fiche produit" subtitle=${p.custom ? 'Produit enregistré' : 'Produit du catalogue'}
+    footer=${html`<div class="row">${p.custom && html`<button type="button" class="btn ghost" onClick=${del}><${Icon} name="trash" size=${16} />Supprimer</button>`}
+      <button type="button" class="btn primary grow" onClick=${onClose}>OK</button></div>`}>
+    <div class="row" style="gap:12px;margin-bottom:12px">
+      <${Thumb} p=${p} cls="thumb sm stock-thumb" />
+      <button type="button" class="btn outline grow" onClick=${() => setScanning(true)}><${Icon} name="barcode" size=${18} />${p.barcode ? 'Re-scanner' : 'Scanner'} (photo, nutrition)</button>
+    </div>
+    <${ScanSheet} open=${scanning} onClose=${() => setScanning(false)}
+      onFound=${(o) => { setScanning(false); enrichFromScan({ productId: p.id }, o); }}
+      onUnknown=${() => { setScanning(false); toast('Produit inconnu d’Open Food Facts'); }} />
+    <label class="label" for="pe-name">Nom</label>
+    <input id="pe-name" class="field" maxlength="80" value=${productTitle(p)} onChange=${(e) => { const v = e.currentTarget.value.trim(); if (v) updateProduct(p.id, { name: v.slice(0, 80) }); }} />
+    <div class="card flat" style="margin-top:12px">
+      <div class="row between"><span class="small strong">Format d’un paquet</span>
+        <div class="row" style="gap:6px"><input class="field num" style="width:96px;height:40px" inputmode="decimal" placeholder="Ex : 1000"
+          value=${p.size ?? ''} onChange=${(e) => { const v = parseFloat(e.currentTarget.value.replace(',', '.')); updateProduct(p.id, { size: isFinite(v) && v > 0 ? v : null, unit }); }} />
+          <span class="small">${unit === 'pc' ? 'pièces' : unit}</span></div></div>
+      <div class="hr"></div>
+      <div class="row between"><span class="small strong">Unité</span>
+        <div class="chips">${[['g', 'g'], ['ml', 'ml'], ['pc', 'pièces']].map(([u, l]) => html`<${Chip} sm active=${unit === u} onClick=${() => { if (u !== unit) updateProduct(p.id, { unit: u, ...(p.ing && ING[p.ing].unit !== u ? { ing: null } : {}) }); }}>${l}</${Chip}>`)}</div></div>
+      <div class="hr"></div>
+      <div class="row between"><span class="small strong">Rangement</span>
+        <div class="chips">
+          <${Chip} sm active=${(p.storage || ING[p.ing]?.storage) === 'frigo'} onClick=${() => updateProduct(p.id, { storage: 'frigo' })}>🧊 Frigo</${Chip}>
+          <${Chip} sm active=${(p.storage || ING[p.ing]?.storage) !== 'frigo'} onClick=${() => updateProduct(p.id, { storage: 'placard' })}>📦 Placard</${Chip}>
+        </div></div>
+    </div>
+    <div class="small strong" style="margin:14px 2px 6px">Compte dans les recettes comme</div>
+    <${IngredientSearch} value=${p.ing} allowNone onPick=${(v) => updateProduct(p.id, { ing: v })} />
+    <p class="subtle xs" style="margin-top:10px">Tes corrections sont reprises partout : stock, liste, recettes et prochains tickets.</p>
+  </${Sheet}>`;
+}
+
 function StockEditSheet({ id, s, onClose }) {
   const [scanning, setScanning] = useState(false);
+  const [editProduct, setEditProduct] = useState(false);
   const x = s.inventory.find((i) => i.id === id);
   if (!x) return html`<${Sheet} open=${false} />`;
   const ing = ING[x.ing];
   const unit = ing?.unit || x.unit;
   const prodX = getProduct(s, x.productId);
   const packSize = prodX?.size && (prodX.unit || ING[prodX.ing]?.unit) === unit ? prodX.size : null;
-  const step = packSize && unit !== 'pc' ? packSize : !unit || unit === 'pc' ? 1 : unit === 'ml' ? 100 : 50;
+  const step = !unit || unit === 'pc' ? 1 : x.qty <= 100 ? 10 : 50;
+  const askRemove = async () => {
+    if (await confirmAction({ title: `Plus de ${cleanName(x.name).toLowerCase()} ?`, message: 'Le produit sera retiré de ton stock. Sa fiche reste enregistrée.', confirm: 'Retirer du stock', cancel: 'Garder' })) { removeStockItem(x.id); onClose(); }
+  };
   const nutri = x.nutri || getProduct(s, x.productId)?.nutri || (ing && ing.unit !== 'pc' ? { kcal: ing.kcal, prot: ing.prot } : null);
   return html`<${Sheet} open=${true} onClose=${onClose} title=${cleanName(x.name)} subtitle=${x.addedAt ? `Ajouté le ${fmtShort(x.addedAt)}` : ''}
     footer=${html`<div class="row">
@@ -224,12 +291,14 @@ function StockEditSheet({ id, s, onClose }) {
     <${ScanSheet} open=${scanning} onClose=${() => setScanning(false)}
       onFound=${(o) => { setScanning(false); enrichFromScan({ lotId: x.id }, o); }}
       onUnknown=${() => { setScanning(false); toast('Produit inconnu d’Open Food Facts'); }} />
+    ${x.productId && html`<button type="button" class="btn ghost sm block" style="margin-bottom:12px" onClick=${() => setEditProduct(true)}><${Icon} name="edit" size=${15} />Modifier la fiche produit (nom, format, aliment)</button>`}
+    ${editProduct && html`<${ProductEditSheet} id=${x.productId} s=${s} onClose=${() => setEditProduct(false)} />`}
     <label class="label" for="st-name">Nom</label>
     <input id="st-name" class="field" maxlength="80" value=${x.name} onChange=${(e) => { const v = e.currentTarget.value.trim(); if (v) updateStockItem(x.id, { name: v.slice(0, 80) }); }} />
     <div class="card flat" style="margin-top:12px">
       <div class="row between"><span class="small strong">Quantité</span>
         <${Stepper} value=${x.qty} min=${0} step=${step} format=${(v) => lotQty({ ...x, qty: v }, prodX)}
-          onChange=${(v) => { if (v <= 0) { removeStockItem(x.id); onClose(); } else updateStockItem(x.id, { qty: v }); }} /></div>
+          onChange=${(v) => { if (v <= 0) askRemove(); else updateStockItem(x.id, { qty: v }); }} /></div>
       ${x.productId && unit && unit !== 'pc' && html`<div class="hr"></div>
       <div class="row between"><span class="small strong">Format d’un paquet</span>
         <div class="row" style="gap:6px"><input class="field num" style="width:96px;height:40px" inputmode="decimal" placeholder="Ex : 1000"

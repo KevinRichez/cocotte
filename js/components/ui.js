@@ -26,11 +26,22 @@ export function Toggle({ on, onChange, label }) {
   return html`<button type="button" class=${`toggle ${on ? 'on' : ''}`} role="switch" aria-checked=${on} aria-label=${label} onClick=${() => onChange(!on)}></button>`;
 }
 
+// Touche la valeur pour taper le chiffre exact (ex : 250 g pile)
 export function Stepper({ value, onChange, min = 0, max = Infinity, step = 1, format }) {
+  const [typing, setTyping] = useState(false);
   const set = (v) => onChange(Math.min(max, Math.max(min, Math.round(v * 10) / 10)));
+  const commit = (e) => {
+    const v = parseFloat(String(e.currentTarget.value).replace(',', '.').replace(/[^\d.]/g, ''));
+    setTyping(false);
+    if (isFinite(v) && v !== value) set(v);
+  };
   return html`<div class="stepper">
     <button type="button" aria-label="Moins" onClick=${(e) => { e.stopPropagation(); set(value - step); }}><${Icon} name="minus" size=${16} /></button>
-    <span>${format ? format(value) : value}</span>
+    ${typing
+      ? html`<input class="stepper-input num" inputmode="decimal" autoFocus value=${String(value).replace('.', ',')}
+          onClick=${(e) => e.stopPropagation()} onFocus=${(e) => e.currentTarget.select()} onBlur=${commit}
+          onKeyDown=${(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setTyping(false); }} />`
+      : html`<span class="stepper-val" role="button" tabindex="0" aria-label="Taper la valeur" onClick=${(e) => { e.stopPropagation(); setTyping(true); }}>${format ? format(value) : value}</span>`}
     <button type="button" aria-label="Plus" onClick=${(e) => { e.stopPropagation(); set(value + step); }}><${Icon} name="plus" size=${16} /></button>
   </div>`;
 }

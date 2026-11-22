@@ -379,6 +379,36 @@ export function setProductSize(lotId, size) {
   });
 }
 
+// Modifier une fiche produit (nom, format, aliment, rangement), même hors stock
+export function updateProduct(productId, patch) {
+  update((d) => {
+    const custom = d.customProducts.find((p) => p.id === productId);
+    const base = getProduct(d, productId);
+    if (!base) return;
+    const clean = { ...patch, edited: true };
+    if ('name' in clean) { clean.offName = clean.name; if (!custom) delete clean.name; }
+    if ('ing' in clean && clean.ing) { clean.unit = ING[clean.ing].unit; if (custom) { custom.emoji = ING[clean.ing].emoji; custom.aisle = ING[clean.ing].aisle; } }
+    if (custom) Object.assign(custom, clean);
+    else d.productOverrides[productId] = { ...(d.productOverrides[productId] || {}), ...clean };
+    for (const lot of d.inventory.filter((x) => x.productId === productId)) {
+      if ('name' in patch) lot.name = patch.name;
+      if ('ing' in patch) { lot.ing = patch.ing || null; lot.unit = patch.ing ? null : (patch.unit || lot.unit); }
+      else if ('unit' in patch && !lot.ing) lot.unit = patch.unit;
+    }
+    rememberRef(d, productId);
+  });
+}
+
+export function deleteProduct(productId) {
+  const prev = update((d) => {
+    d.customProducts = d.customProducts.filter((p) => p.id !== productId);
+    delete d.productOverrides[productId];
+    for (const [k, v] of Object.entries(d.brandPrefs)) if (v === productId) delete d.brandPrefs[k];
+    for (const lot of d.inventory) if (lot.productId === productId) lot.productId = null;
+  });
+  undoable(prev, 'Fiche produit supprimée');
+}
+
 export function restockCandidates(s) {
   const inStock = new Set(s.inventory.map((x) => x.productId).filter(Boolean));
   const ids = [...s.customProducts.filter((p) => !p.ignored).map((p) => p.id).reverse(), ...Object.keys(s.productOverrides || {})];

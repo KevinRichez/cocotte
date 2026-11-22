@@ -389,17 +389,50 @@ export function fmtQty(qty, unit, ingId) {
   return `${n} ${label}${q > 1 && !label.endsWith('s') ? 's' : ''}`;
 }
 
-export function guessIngredient(text, { packaged } = {}) {
-  const t = norm(text || '');
-  if (!t.trim()) return null;
-  let best = null;
-  for (const ing of INGREDIENTS) {
-    let score = 0;
-    for (const w of new Set(ing.keys.split(/[\s-]+/))) if (w.length > 2 && t.includes(w)) score += w.length > 5 ? 2 : 1;
-    const pct = t.match(/(\d+)\s?%/);
-    if (pct && ing.keys.includes(`${pct[1]}%`)) score += 3;
-    if (score && packaged) score += (ing.unit === 'pc' ? -0.5 : 0.5) - (ing.fresh ? 1 : 0);
-    if (score && (!best || score > best.score)) best = { ing, score };
-  }
-  return best && best.score >= 2 ? best.ing.id : null;
+// Reconnaissance d'un aliment dans un libellé (ticket, scan, saisie).
+// Priorité au nom complet le plus précis : « pâte à tartiner » ne devient jamais « pâtes »,
+// « lait HDF demi-écrémé » donne « Lait demi-écrémé » et pas « Lait écrémé ».
+const MSTOP = new Set(['ou', 'de', 'du', 'des', 'la', 'le', 'les', 'a', 'au', 'aux', 'en', 'et', 'pour', 'avec', 'sans', 'un', 'une', 'd', 'l']);
+const ABBR = { ecr: 'ecreme', 'ecrem': 'ecreme', dem: 'demi', '1/2': 'demi', 'pdt': 'pomme de terre', choc: 'chocolat', fr: 'frais', fraich: 'fraiche', bl: 'blanc', vol: 'volaille', hach: 'hache', past: 'pasteurise', uht: 'uht' };
+const sing = (w) => (w.length > 3 ? w.replace(/(s|x)$/, '') : w);
+export function matchTokens(text) {
+  const t = norm(String(text || '')).replace(/œ/g, 'oe').replace(/æ/g, 'ae').replace(/1\/2/g, ' demi ').replace(/['’\-_/.,()+]/g, ' ');
+  return t.split(/\s+/).filter(Boolean).map((w) => ABBR[w] || w).join(' ').split(' ')
+    .filter((w) => w && !MSTOP.has(w) && !/^\d+([.,]\d+)?(g|kg|cl|ml|l|x)?$/.test(w)).map(sing);
 }
+// Mots qui changent la nature du produit : « pâte brisée » n'est pas « pâtes », « lait de coco » n'est pas « lait »
+const NOT_IF = {
+  pates: ['tartiner', 'brisee', 'sablee', 'feuilletee', 'pizza', 'curry', 'fruit', 'amande', 'lasagne'],
+  lait: ['coco', 'soja', 'amande', 'avoine', 'riz', 'corp', 'toilette', 'chocolate', 'chocolat'],
+  pomme: ['terre', 'jus', 'compote'], tomate: ['sauce', 'pulpe', 'concentre', 'pelee', 'passata', 'cerise'],
+  beurre: ['cacahuete', 'demi', 'sale'], creme: ['dessert', 'glacee'], sucre: ['vanille'], chocolat: ['poudre', 'blanc', 'noir', 'pepite'],
+  oignon: ['poudre'], ail: ['poudre'], riz: ['lait', 'galette'], poulet: ['roti', 'cuit', 'nugget', 'cordon'],
+};
+const M_INDEX = INGREDIENTS.map((ing) => {
+  const name = matchTokens(ing.name).filter((w) => !/^\d/.test(w) && w !== '%');
+  const kw = [...new Set(matchTokens(ing.keys))].filter((w) => w.length >= 3 && !name.includes(w) && !/\d/.test(w));
+  return { ing, name, kw, pcts: ing.keys.match(/\d+%/g) || [], not: NOT_IF[ing.id] || [] };
+});
+export function matchIngredientText(text, { packaged } = {}) {
+  const raw = norm(String(text || ''));
+  const toks = matchTokens(text);
+  if (!toks.length) return null;
+  const set = new Set(toks);
+  const pct = raw.match(/(\d+)\s?%/)?.[1];
+  let best = null;
+  for (const { ing, name, kw, pcts, not } of M_INDEX) {
+    if (not.some((w) => set.has(w))) continue;
+    const hits = name.filter((w) => set.has(w)).length;
+    const full = name.length > 0 && hits === name.length;
+    const near = !full && hits >= 2 && hits >= name.length - 1;
+    let score = full ? 100 + 12 * name.length : near ? 90 + 12 * hits : hits * 8;
+    if (!full && hits && name[0] && !set.has(name[0])) score -= 4;
+    const kwHits = kw.filter((w) => set.has(w));
+    score += Math.min(12, kwHits.reduce((n, w) => n + (w.length > 5 ? 6 : 3), 0)) + 5 * (hits + kwHits.length);
+    if (pct && pcts.length) score += pcts.includes(`${pct}%`) ? 15 : -15;
+    if (score > 0 && packaged) score += (ing.unit === 'pc' ? -0.5 : 0.5) - (ing.fresh ? 1 : 0);
+    if (score >= 6 && (!best || score > best.score)) best = { id: ing.id, score };
+  }
+  return best?.id || null;
+}
+export function guessIngredient(text, opts) { return matchIngredientText(text, opts); }

@@ -227,6 +227,8 @@ h1, h2, h3, h4, p { margin: 0; }
 .stepper button { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 99px; }
 .stepper button:active { background: var(--surface-3); }
 .stepper span { min-width: 26px; text-align: center; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+.stepper-val { cursor: text; padding: 4px 6px; border-radius: 8px; text-decoration: underline dotted var(--ink-3); text-underline-offset: 3px; }
+.stepper-input { width: 78px; height: 30px; border: 1.5px solid var(--sage); border-radius: 10px; text-align: center; font-weight: 700; font-size: 15px; background: var(--surface); color: var(--ink); }
 
 .field { width: 100%; height: 48px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); padding: 0 14px; outline: none; transition: border-color .2s, box-shadow .2s; }
 .field:focus { border-color: var(--sage); box-shadow: 0 0 0 4px var(--sage-50); }
