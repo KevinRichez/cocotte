@@ -10,7 +10,7 @@ import {
   isBlocked, nextFreeSlot, getRecipe, allRecipes, targets, dayTotals, norm, slotBudget,
 } from '../lib/engine.js';
 import {
-  markEaten, markDayEaten, markOutside, skipSlot, resetSlot, clearSlot, planRecipe, placeDeferred, dropDeferred, generateList, autofillWeek,
+  markEaten, markDayEaten, adjustDayPortions, markOutside, skipSlot, resetSlot, clearSlot, planRecipe, placeDeferred, dropDeferred, generateList, autofillWeek,
 } from '../actions.js';
 
 export function WeekView() {
@@ -85,6 +85,8 @@ function DaySummary({ s, date }) {
   const { eaten, planned, protEaten, protPlanned } = dayTotals(s, date);
   return html`<div class="card pad-lg" style="margin-top:14px">
     <${KcalGauge} eaten=${eaten} planned=${planned} target=${tg.kcal} />
+    ${planned < tg.kcal - 50 && MEAL_KEYS.some((m) => s.plan[date]?.[m]?.status === 'planned' && !isSlotPast(date, m)) && html`<button type="button" class="btn soft sm block" style="margin-top:12px" onClick=${() => adjustDayPortions(date, tg.kcal)}>
+      <${Icon} name="sparkles" size=${15} />Ajuster les portions pour atteindre ${kcalFmt(tg.kcal)} kcal</button>`}
     <div class="prot-line"><span>Protéines</span><b class="num">${Math.round(protEaten)} g</b></div>
   </div>`;
 }

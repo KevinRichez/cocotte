@@ -44,10 +44,19 @@ export function getProduct(s, id) {
 }
 export function productTitle(p) {
   if (!p) return '';
-  if (p.custom || p.offName) return p.offName || p.name;
+  if (p.offName) return p.offName;
+  if (p.custom) return cleanName(p.name);
   return ING[p.ing]?.name || p.name;
 }
-export const cleanName = (n) => String(n || '').replace(/\s+(x\d+|\d+([.,]\d+)?\s?(g|kg|ml|cl|l|L)|à l'unité)$/u, '').trim();
+export const cleanName = (n) => {
+  const out = String(n || '')
+    .replace(/\d+([.,]\d+)?\s?%\s?(mg)?/gi, ' ')
+    .replace(/\b\d+([.,]\d+)?\s?(kg|g|gr|cl|ml|l)\b/gi, ' ')
+    .replace(/\b\d+\s?x\s?\d*\b|\bx\s?\d+\b/gi, ' ')
+    .replace(/\s+à l'unité$/u, '')
+    .replace(/\s{2,}/g, ' ').trim();
+  return out || String(n || '');
+};
 export function productSize(p) {
   if (!p?.size) return '';
   const unit = p.unit || ING[p.ing]?.unit;
@@ -275,7 +284,7 @@ export function slotBudget(s, date, meal) {
 export function servingsFor(kcal, budget, dir) {
   if (!kcal || !budget) return 1;
   const raw = budget / kcal;
-  const max = dir === 'lose' ? 1 : 2;
+  const max = dir === 'lose' ? 1 : 2.5;
   const min = dir === 'gain' ? 1 : 0.75;
   return Math.min(max, Math.max(min, Math.round(raw * 4) / 4));
 }

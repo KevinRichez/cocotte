@@ -8,7 +8,7 @@ import { STORES, storeLabel, packLabel } from '../data/products.js';
 import { EQUIPMENT, COOKING_EQUIPMENT } from '../data/recipes.js';
 import { dlcInfo, fmtShort, addDays, today } from '../lib/dates.js';
 import { kcalFmt, targets, GOAL_LABEL, getProduct, estimateDlc, TIER_META, TIER_KEYS, allRecipes, norm, cleanName, productTitle, productSize } from '../lib/engine.js';
-import { addStock, updateStockItem, removeStockItem, setTier, setProfile, enrichFromScan } from '../actions.js';
+import { addStock, updateStockItem, removeStockItem, setTier, setProfile, enrichFromScan, resetStockAndHistory } from '../actions.js';
 import { toast } from '../lib/toast.js';
 
 export function ProfileView() {
@@ -330,6 +330,7 @@ function ProfileSheet({ open, onClose, s }) {
         <label class="btn ghost sm" style="cursor:pointer"><${Icon} name="refresh" size=${15} />Restaurer une sauvegarde
           <input type="file" accept="application/json,.json" hidden onChange=${importData} /></label>
         <button type="button" class="btn ghost sm" onClick=${() => { onClose(); reset(); }}><${Icon} name="refresh" size=${15} />Refaire l’accueil</button>
+        <button type="button" class="btn ghost sm" onClick=${() => { onClose(); resetStockAndHistory(); }}><${Icon} name="trash" size=${15} />Vider placards, frigo et historique</button>
       </div>
     </div>
   </${Sheet}>`;

@@ -5,7 +5,7 @@ import { ING, guessIngredient } from './data/ingredients.js';
 import { today, relDay } from './lib/dates.js';
 import {
   uid, recipeLines, consumeLines, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
-  listItemInfo, listTotal, euro, getProduct, getRecipe, defaultProductFor,
+  listItemInfo, listTotal, euro, getProduct, getRecipe, defaultProductFor, slotKcal, isSlotPast,
 } from './lib/engine.js';
 
 const undoable = (prev, message) => toast(message, { action: 'Annuler', onAction: () => restore(prev) });
@@ -302,6 +302,41 @@ export function setSlotServings(date, meal, servings) {
     if (!slot) return;
     if (servings === 1) delete slot.servings; else slot.servings = servings;
   });
+}
+
+export function resetStockAndHistory() {
+  const prev = update((d) => {
+    d.inventory = [];
+    d.history = [];
+    d.priceOverrides = {};
+    d.lastTicketSync = null;
+  });
+  toast('Placards, frigo et historique remis à zéro', { action: 'Annuler', onAction: () => restore(prev), duration: 8000 });
+}
+
+export function adjustDayPortions(date, target) {
+  let changed = 0;
+  const prev = update((d) => {
+    const plan = d.plan[date] || {};
+    let fixed = 0, flexible = 0;
+    const flex = [];
+    for (const m of MEAL_KEYS) {
+      const slot = plan[m];
+      if (!slot || slot.status === 'skipped') continue;
+      const k = slotKcal(d, slot).kcal;
+      if (slot.status === 'planned' && !isSlotPast(date, m) && getRecipe(d, slot.recipeId)) { flex.push({ slot, base: k / (slot.servings || 1) }); flexible += k; }
+      else fixed += k;
+    }
+    if (!flex.length || flexible <= 0) return;
+    const factor = Math.max(0, target - fixed) / flex.reduce((n, x) => n + x.base, 0);
+    for (const x of flex) {
+      const sv = Math.min(2.5, Math.max(0.75, Math.round(factor * 4) / 4));
+      if (sv !== (x.slot.servings || 1)) changed++;
+      if (sv === 1) delete x.slot.servings; else x.slot.servings = sv;
+    }
+  });
+  if (changed) undoable(prev, 'Portions ajustées pour atteindre ton objectif');
+  else toast('Les portions sont déjà au maximum conseillé');
 }
 
 export function enrichFromScan({ lotId, productId }, off) {

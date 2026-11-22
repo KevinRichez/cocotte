@@ -69,7 +69,7 @@ export function parseSize(label) {
     if (u === 'cl') return { size: Math.round(n * 10), unit: 'ml' };
     return { size: Math.round(n), unit: 'ml' };
   }
-  m = t.match(/\bx\s?(\d{1,3})\b/) || t.match(/\b(\d{1,3})\s?x\b/) || t.match(/\b(\d{1,3})\s?(pieces|pcs|tranches|tr|oeufs|pots|steaks)\b/) || t.match(/^(\d{1,2})\s+[a-z]{3}/);
+  m = t.match(/\bx\s?(\d{1,3})\b/) || t.match(/\b(\d{1,3})\s?x\b/) || t.match(/\b(\d{1,3})\s?(pieces|pcs|tranches|tr|t|oeufs|pots|steaks)\b/) || t.match(/^(\d{1,2})\s+[a-z]{3}/);
   if (m) return { size: parseInt(m[1], 10), unit: 'pc' };
   return null;
 }
@@ -92,7 +92,7 @@ const ABBREV = {
 };
 const DROP_WORDS = new Set(['extra', 'extratendre', 'tendre', 'tendres', 'fondant', 'fondante', 'original', 'origin', 'originale', 'origine', 'classique',
   'tradition', 'traditionnel', 'traditionnelle', 'recette', 'premium', 'selection', 'authentique', 'gourmand', 'gourmande', 'maxi', 'format',
-  'familial', 'offre', 'promo', 'sup', 'dd', 'dg', 'ddg', 'decouenne', 'degraisse', 'csn', 'lot', 'pack', 'special', 'speciale', 'qualite', 'superieure', 'superieur', 'francais', 'francaise', 'gratuit', 'ferial',
+  'familial', 'offre', 'promo', 'bparis', 'csni', 'sni', 'nitrites', 'sup', 'dd', 'dg', 'ddg', 'decouenne', 'degraisse', 'csn', 'lot', 'pack', 'special', 'speciale', 'qualite', 'superieure', 'superieur', 'francais', 'francaise', 'gratuit', 'ferial',
   'lg', 'herta', 'fleury', 'michon', 'charal', 'panzani', 'barilla', 'lustucru', 'old', 'paso', 'maitre', 'coq', 'pere', 'dodu', 'bonduelle',
   'cassegrain', 'saurin', 'william', 'president', 'danone', 'yoplait', 'lactel', 'candia', 'nestle', 'kelloggs', 'heinz', 'amora', 'lesieur',
   'puget', 'mutti', 'aucy', 'tipiak', 'knorr', 'maggi', 'galbani', 'elle', 'vire', 'labeyrie', 'connetable', 'navire', 'gaulois', 'socopa', 'bigard']);
@@ -102,7 +102,7 @@ const ACCENTS = {
   cereales: 'céréales', cafe: 'café', puree: 'purée', poelee: 'poêlée', roti: 'rôti', rotie: 'rôtie', the: 'thé', gruyere: 'gruyère',
   emince: 'émincé', eminces: 'émincés', epices: 'épices', peche: 'pêche', fraiche: 'fraîche', frais: 'frais', entiere: 'entière',
   speciale: 'spéciale', reduit: 'réduit', allege: 'allégé', mais: 'maïs', grillee: 'grillée', grilles: 'grillés', dore: 'doré',
-  edition: 'édition', epaisse: 'épaisse', a: 'à', fumes: 'fumées', fume: 'fumé', fumees: 'fumées', nitrite: 'nitrite', cote: 'côte', cotes: 'côtes', pate: 'pâte', ble: 'blé', ses: 'sésame', eponges: 'éponges', eponge: 'éponge', ecrase: 'écrasé', petales: 'pétales', allumettes: 'allumettes', legere: 'légère', cuisine: 'cuisiné', cuisinee: 'cuisinée', saute: 'sauté', melange: 'mélange', premiere: 'première',
+  edition: 'édition', etouffee: 'étouffée', etuvee: 'étuvée', braise: 'braisé', cuit: 'cuit', fumé: 'fumé', epaisse: 'épaisse', a: 'à', fumes: 'fumées', fume: 'fumé', fumees: 'fumées', nitrite: 'nitrite', cote: 'côte', cotes: 'côtes', pate: 'pâte', ble: 'blé', ses: 'sésame', eponges: 'éponges', eponge: 'éponge', ecrase: 'écrasé', petales: 'pétales', allumettes: 'allumettes', legere: 'légère', cuisine: 'cuisiné', cuisinee: 'cuisinée', saute: 'sauté', melange: 'mélange', premiere: 'première',
 };
 
 export function prettyName(label) {
@@ -111,13 +111,24 @@ export function prettyName(label) {
     .replace(/\b\d+([.,]\d+)?\s?(kg|g|gr|grs|cl|ml|l)\b/g, ' ')
     .replace(/\bx\s?\d+(=\d+)?\b/g, ' ').replace(/\b\d{1,2}\s?x\b/g, ' ')
     .replace(/\b\d+\/\d+\b/g, ' ').replace(/\b[a-z]\/[a-z]+\b/g, ' ').replace(/(\.[a-z0-9+]{1,3})+\.?\+?/g, ' ')
-    .replace(/-[a-z]{2,3}\b/g, ' ').replace(/[€*=+]/g, ' ').replace(/^\d{1,2}\s+/, '');
-  const words = s.split(/\s+/).filter(Boolean).filter((w) => !DROP_WORDS.has(w)).map((w) => {
-    if (Object.prototype.hasOwnProperty.call(ABBREV, w)) return ABBREV[w];
-    return ACCENTS[w] || w;
-  }).filter(Boolean);
-  const out = words.join(' ').replace(/\s{2,}/g, ' ').replace(/\s+%/g, ' %').trim();
+    .replace(/-[a-z]{2,3}\b/g, ' ').replace(/[€*=+]/g, ' ').replace(/^\d{1,2}\s+/, '')
+    .replace(/\d+([.,]\d+)?\s?%\s?(mg)?/g, ' ').replace(/\b\d+\s?t\b/g, ' ').replace(/\bmg\b/g, ' ');
+  const fix = (w) => (Object.prototype.hasOwnProperty.call(ABBREV, w) ? ABBREV[w] : ACCENTS[w] || w);
+  const words = s.split(/\s+/).filter(Boolean)
+    .filter((w) => !DROP_WORDS.has(w) && !/\d/.test(w))
+    .map((w) => (w.includes("'") && !Object.prototype.hasOwnProperty.call(ABBREV, w) ? w.split("'").map(fix).join("'") : fix(w)))
+    .filter(Boolean);
+  const out = words.join(' ').replace(/\s{2,}/g, ' ').trim();
   return out ? out.charAt(0).toUpperCase() + out.slice(1) : label;
+}
+
+export function cleanTitle(name) {
+  const out = String(name || '')
+    .replace(/\d+([.,]\d+)?\s?%\s?(mg)?/gi, ' ')
+    .replace(/\b\d+([.,]\d+)?\s?(kg|g|gr|cl|ml|l)\b/gi, ' ')
+    .replace(/\b\d+\s?x\s?\d*\b|\bx\s?\d+\b/gi, ' ')
+    .replace(/\s{2,}/g, ' ').trim();
+  return out || name;
 }
 
 const NOT_FOR_RECIPES_ING = new Set(['soda', 'sirop', 'smoothie', 'cafe', 'the', 'patate_chips', 'boisson_proteinee', 'jus_multifruit']);
@@ -200,7 +211,8 @@ export function parseTicket(raw, defaultStore = 'leclerc', memory = []) {
 
     const key = ticketKey(label);
     const mem = remembered.get(key);
-    const guessed = mem ? mem.ing : (matchIngredient(prettyName(label)) || matchIngredient(label));
+    const pctTxt = label.match(/\d+([.,]\d+)?\s?%/)?.[0] || '';
+    const guessed = mem ? mem.ing : (matchIngredient(`${prettyName(label)} ${pctTxt}`) || matchIngredient(label));
     const reason = mem ? (mem.ignored ? mem.ignoredReason || 'Ignoré' : null) : ignoreReason(label, section, guessed);
     const ing = reason && reason !== 'Boisson ou snack' ? null : guessed;
     const base = ing ? ING[ing] : null;
@@ -216,7 +228,7 @@ export function parseTicket(raw, defaultStore = 'leclerc', memory = []) {
     const frozen = /surgel/.test(section);
     items.push({
       key: `t${n}`, lineIndex: n, line, label, ticketKey: key, store, tier: tierHint(t, store), section,
-      name: mem?.name || prettyName(label),
+      name: mem ? (mem.offName || cleanTitle(mem.name)) : prettyName(label),
       ing: ing || null,
       size: mem?.size ?? size,
       unit: mem?.unit ?? sizeUnit ?? base?.unit ?? 'pc',

@@ -7,7 +7,7 @@ import { ING, fmtQty } from '../data/ingredients.js';
 import { today, addDays, dayShort, dayNum, relDay } from '../lib/dates.js';
 import {
   recipeLines, nutrition, linesCost, stockQty, swapOptions, budgetLevel, budgetLabel, euro, kcalFmt, nextFreeSlot,
-  getRecipe, recipeTier, ingTier, canCook,
+  getRecipe, recipeTier, ingTier, canCook, slotBudget, servingsFor,
 } from '../lib/engine.js';
 import { planRecipe, addIngsToList, setTier, deleteRecipe } from '../actions.js';
 
@@ -22,8 +22,12 @@ export function RecipeSheet({ recipeId, onClose, target }) {
   const [editing, setEditing] = useState(false);
 
   useEffect(() => {
-    setSwaps({}); setServings(1); setSwapIdx(null); setPicking(false); setEditing(false);
-    if (r) setPick(target || nextFreeSlot(s, r) || { date: today(), meal: r.meals[0] });
+    setSwaps({}); setSwapIdx(null); setPicking(false); setEditing(false);
+    if (!r) return;
+    const slot = target || nextFreeSlot(s, r) || { date: today(), meal: r.meals[0] };
+    setPick(slot);
+    const { budget, dir } = slotBudget(s, slot.date, slot.meal);
+    setServings(servingsFor(nutrition(recipeLines(r), s).kcal, budget, dir));
   }, [recipeId]);
 
   const lines = useMemo(() => (r ? recipeLines(r, swaps, servings) : []), [r, swaps, servings]);
@@ -76,6 +80,7 @@ export function RecipeSheet({ recipeId, onClose, target }) {
     </div>
     <div class="chips" style="margin-bottom:6px">${r.equipment.map((e) => html`<span class="badge neutral" style="height:28px">${EQUIPMENT[e]?.emoji} ${EQUIPMENT[e]?.label}</span>`)}</div>
 
+    ${servings !== 1 && html`<div class="card tint-sage small" style="margin-top:4px">Portion adaptée à ton objectif : <b>x${String(servings).replace('.', ',')}</b>, soit ${kcalFmt(per.kcal * servings)} kcal. Modifiable ci-dessous.</div>`}
     <div class="section-title"><div class="h2">Ingrédients</div>
       <${Stepper} value=${servings} min=${0.5} max=${12} step=${0.5} onChange=${setServings} format=${(v) => `${String(v).replace('.', ',')} portion${v > 1 ? 's' : ''}`} />
     </div>

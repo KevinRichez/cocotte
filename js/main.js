@@ -38,5 +38,9 @@ function App() {
 }
 
 if (new URLSearchParams(location.search).has('share')) setTab('shop', { shopTab: 'list' });
+if (new URLSearchParams(location.search).has('vider-stock')) {
+  history.replaceState(null, '', location.pathname);
+  import('./actions.js').then((a) => a.resetStockAndHistory());
+}
 render(html`<${App} />`, document.getElementById('app'));
 document.documentElement.classList.add('ready');
