@@ -163,6 +163,14 @@ export function removeItem(id) {
   const prev = update((d) => { d.shoppingList = d.shoppingList.filter((x) => x.id !== id); });
   undoable(prev, 'Article retiré');
 }
+// Un produit scanné, photographié ou corrigé devient la fiche de référence
+// de son aliment : tickets, liste de courses et recettes la reprennent.
+function rememberRef(d, productId) {
+  const p = getProduct(d, productId);
+  if (!p?.ing || !ING[p.ing] || p.ignored) return;
+  if ((p.image && !p.stockPhoto) || p.barcode || p.offName || p.nutri || p.edited) d.brandPrefs[p.ing] = p.id;
+}
+
 export function swapItemProduct(id, productId) {
   update((d) => {
     const it = d.shoppingList.find((x) => x.id === id);
@@ -226,6 +234,8 @@ export function applyTicket(items, dlcs = {}) {
       };
       if (p) Object.assign(p, data);
       else { p = { id: `perso.${uid()}`, ...data }; d.customProducts.push(p); }
+      if (it.edited) p.edited = true;
+      if (!it.ignored) rememberRef(d, p.id);
       if (!it.ignored) addToInventory(d, {
         ing: linked, productId: p.id, name: p.name,
         qty: size ? size * (it.packCount || 1) * it.qty : it.qty * (it.packCount || 1), unit: linked ? null : (size ? it.unit : null),
@@ -257,12 +267,18 @@ export function saveCustomProduct(product) {
 }
 
 export function addStock({ productId, ing, name, qty, unit, dlc, location, nutri }) {
-  const prev = update((d) => { addToInventory(d, { productId, ing, name, qty, unit, dlc, location, nutri }); });
+  const prev = update((d) => { addToInventory(d, { productId, ing, name, qty, unit, dlc, location, nutri }); rememberRef(d, productId); });
   undoable(prev, `${name} rangé au ${location === 'frigo' ? 'frigo' : 'placard'}`);
 }
 export const updateStockItem = (id, patch) => update((d) => {
   const it = d.inventory.find((x) => x.id === id);
   if (it) Object.assign(it, patch);
+  if (it && patch.name && it.productId) {
+    const custom = d.customProducts.find((p) => p.id === it.productId);
+    if (custom) Object.assign(custom, { name: patch.name, offName: patch.name, edited: true });
+    else if (getProduct(d, it.productId)) d.productOverrides[it.productId] = { ...(d.productOverrides[it.productId] || {}), offName: patch.name, edited: true };
+    rememberRef(d, it.productId);
+  }
   d.inventory = d.inventory.filter((x) => x.qty > 0);
 });
 export function removeStockItem(id) {
@@ -389,6 +405,7 @@ export function enrichFromScan({ lotId, productId }, off) {
       if (off.size && unitOk && oldSize && Math.abs(lot.qty / oldSize - Math.round(lot.qty / oldSize)) < 0.01) lot.qty = Math.round(lot.qty / oldSize) * off.size;
       if (!lot.ing && off.size) lot.unit = off.unit;
     }
+    rememberRef(d, lot?.productId || pid);
   });
   undoable(prev, `Fiche mise à jour : ${label}`);
 }

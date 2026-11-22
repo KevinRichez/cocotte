@@ -166,7 +166,7 @@ function mergeLines(lines) {
   return out;
 }
 
-export function parseTicket(raw, defaultStore = 'leclerc', memory = []) {
+export function parseTicket(raw, defaultStore = 'leclerc', memory = [], refs = {}) {
   const lines = mergeLines(raw.split(/\r?\n/).map((l) => l.replace(/\s+$/, '').trim()).filter(Boolean));
   const head = norm(lines.slice(0, 8).join(' '));
   const store = STORE_HINTS.find(([, re]) => re.test(head))?.[0] || defaultStore;
@@ -226,16 +226,19 @@ export function parseTicket(raw, defaultStore = 'leclerc', memory = []) {
       estimated = true;
     }
     const frozen = /surgel/.test(section);
+    const ref = !mem && ing && !reason ? refs[ing] : null;
+    const refUnit = ref ? (ref.unit || ING[ing]?.unit) : null;
+    const useRefSize = ref && ref.size && (!sz || estimated) && refUnit === (sizeUnit || base?.unit);
     items.push({
-      key: `t${n}`, lineIndex: n, line, label, ticketKey: key, store, tier: tierHint(t, store), section,
-      name: mem ? (mem.offName || cleanTitle(mem.name)) : prettyName(label),
+      key: `t${n}`, lineIndex: n, line, label, ticketKey: key, store, tier: tierHint(t, store), section, fromRef: !!ref,
+      name: mem ? (mem.offName || cleanTitle(mem.name)) : ref ? cleanTitle(ref.offName || ref.name || ING[ing].name) : prettyName(label),
       ing: ing || null,
-      size: mem?.size ?? size,
+      size: mem?.size ?? (useRefSize ? ref.size : size),
       unit: mem?.unit ?? sizeUnit ?? base?.unit ?? 'pc',
-      sizeFromTicket: !!mem || (!!sz && !estimated),
+      sizeFromTicket: !!mem || !!useRefSize || (!!sz && !estimated),
       qty, packCount: mem?.packCount ?? packCount, unitPrice: unit, total: Math.round(unit * qty * 100) / 100,
       remembered: !!mem, productId: mem?.id || null, ignored: !!reason, ignoredReason: reason, frozen,
-      image: mem?.image || null, nutri: mem?.nutri || null, barcode: mem?.barcode || null, brand: mem?.brand || null,
+      image: (mem || ref)?.image || null, nutri: (mem || ref)?.nutri || null, barcode: (mem || ref)?.barcode || null, brand: (mem || ref)?.brand || null,
       storage: mem?.storage || (frozen ? 'frigo' : base?.storage) || (/cremerie|boucherie|charcuterie|traiteur|frais|poissonnerie|fromage/.test(section) ? 'frigo' : 'placard'),
     });
   });

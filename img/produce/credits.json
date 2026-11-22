@@ -1,0 +1,242 @@
+{
+ "tomate": {
+  "file": "Tomato je.jpg",
+  "author": "Softeis",
+  "license": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Tomato_je.jpg"
+ },
+ "tomates_cerises": {
+  "file": "Types_of_cherry_tomatoes.jpg",
+  "author": "Arturo Feliz-Camilo",
+  "license": "CC BY 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Types_of_cherry_tomatoes.jpg"
+ },
+ "courgette": {
+  "file": "Courgette_Cucurbita_pepo_2.jpg",
+  "author": "Meanos",
+  "license": "Public domain",
+  "url": "https://commons.wikimedia.org/wiki/File:Courgette_Cucurbita_pepo_2.jpg"
+ },
+ "brocoli": {
+  "file": "Broccoli_plant.jpg",
+  "author": "Rasbak",
+  "license": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Broccoli_plant.jpg"
+ },
+ "chou_fleur": {
+  "file": "Cauliflower.jpg",
+  "author": "",
+  "license": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Cauliflower.jpg"
+ },
+ "oignon": {
+  "file": "Liat Portal for Foodie Disorder - Onions and Garlic from San Francisco Farmers Market.jpg",
+  "author": "HaJunkiyada",
+  "license": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Liat_Portal_for_Foodie_Disorder_-_Onions_and_Garlic_from_San_Francisco_Farmers_Market.jpg"
+ },
+ "ail": {
+  "file": "Opened garlic bulb with garlic clove.jpg",
+  "author": "Dubravko Sorić SoraZG on Flickr",
+  "license": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Opened_garlic_bulb_with_garlic_clove.jpg"
+ },
+ "carottes": {
+  "file": "Carrots_on_Display.jpg",
+  "author": "MarkBuckawicki",
+  "license": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:Carrots_on_Display.jpg"
+ },
+ "poivron": {
+  "file": "Capsicum_annuum_fruits_IMGP0049.jpg",
+  "author": "Nikodem Nijaki",
+  "license": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Capsicum_annuum_fruits_IMGP0049.jpg"
+ },
+ "champignons": {
+  "file": "Champignons_Agaricus.jpg",
+  "author": "Darkone (talk · contribs)",
+  "license": "CC BY-SA 2.5",
+  "url": "https://commons.wikimedia.org/wiki/File:Champignons_Agaricus.jpg"
+ },
+ "salade": {
+  "file": "Lettuce in a stack.jpg",
+  "author": "Jeffery Martin",
+  "license": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:Lettuce_in_a_stack.jpg"
+ },
+ "concombre": {
+  "file": "Ryerson Market cucumbers on sale.jpg",
+  "author": "Jason Zhang",
+  "license": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Ryerson_Market_cucumbers_on_sale.jpg"
+ },
+ "epinards": {
+  "file": "Spinach leaves.jpg",
+  "author": "Nillerdk",
+  "license": "CC BY 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Spinach_leaves.jpg"
+ },
+ "aubergine": {
+  "file": "Solanum_melongena_26_08_2012_(1).JPG",
+  "author": "Joydeep",
+  "license": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Solanum_melongena_26_08_2012_(1).JPG"
+ },
+ "poireau": {
+  "file": "Poireaux.JPG",
+  "author": "Philippe.OSSWALD at French Wikipedia",
+  "license": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Poireaux.JPG"
+ },
+ "butternut": {
+  "file": "Cucurbita_moschata_Butternut_2012_G2.jpg",
+  "author": "George Chernilevsky",
+  "license": "Public domain",
+  "url": "https://commons.wikimedia.org/wiki/File:Cucurbita_moschata_Butternut_2012_G2.jpg"
+ },
+ "avocat": {
+  "file": "Avocado_Hass_-_single_and_halved.jpg",
+  "author": "Ivar Leidus",
+  "license": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Avocado_Hass_-_single_and_halved.jpg"
+ },
+ "banane": {
+  "file": "Banana_on_black_background.jpg",
+  "author": "Filo gèn'",
+  "license": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Banana_on_black_background.jpg"
+ },
+ "pomme": {
+  "file": "Red Apple.jpg",
+  "author": "Abhijit Tembhekar from Mumbai, India",
+  "license": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Red_Apple.jpg"
+ },
+ "poire": {
+  "file": "D'anjou pear.jpg",
+  "author": "Rhododendrites",
+  "license": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:D%27anjou_pear.jpg"
+ },
+ "orange": {
+  "file": "Oranges_-_whole-halved-segment.jpg",
+  "author": "Ivar Leidus",
+  "license": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Oranges_-_whole-halved-segment.jpg"
+ },
+ "clementine": {
+  "file": "Oh_my_darling.jpg",
+  "author": "tracy from north brookfield,Massachusetts, usa",
+  "license": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Oh_my_darling.jpg"
+ },
+ "kiwi": {
+  "file": "Kiwi_(Actinidia_chinensis)_1_Luc_Viatour.jpg",
+  "author": "Luc Viatour",
+  "license": "CC BY-SA 2.5",
+  "url": "https://commons.wikimedia.org/wiki/File:Kiwi_(Actinidia_chinensis)_1_Luc_Viatour.jpg"
+ },
+ "fraises": {
+  "file": "FraiseFruitPhoto.jpg",
+  "author": "FoeNyx, France",
+  "license": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:FraiseFruitPhoto.jpg"
+ },
+ "fruits_rouges": {
+  "file": "Blueberries and raspberries in a plate.png",
+  "author": "epSos.de",
+  "license": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Blueberries_and_raspberries_in_a_plate.png"
+ },
+ "raisin": {
+  "file": "Grapes,_Dry_Creek_Valley-7705.jpg",
+  "author": "Frank Schulenburg",
+  "license": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Grapes,_Dry_Creek_Valley-7705.jpg"
+ },
+ "citron": {
+  "file": "Lemon,_Lemon_tree,_Florence,_Italy.jpg",
+  "author": "Vyacheslav Argenberg",
+  "license": "CC BY 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Lemon,_Lemon_tree,_Florence,_Italy.jpg"
+ },
+ "mangue": {
+  "file": "Mangos_-_single_and_halved.jpg",
+  "author": "Ivar Leidus",
+  "license": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Mangos_-_single_and_halved.jpg"
+ },
+ "navet": {
+  "file": "Turnip_2622027.jpg",
+  "author": "thebittenword.com",
+  "license": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Turnip_2622027.jpg"
+ },
+ "chou": {
+  "file": "Savoy Cabbage wrinkles.jpg",
+  "author": "Sheila Sund",
+  "license": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Savoy_Cabbage_wrinkles.jpg"
+ },
+ "radis": {
+  "file": "A Bunch of Radishes.JPG",
+  "author": "TeWeBs",
+  "license": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:A_Bunch_of_Radishes.JPG"
+ },
+ "fenouil": {
+  "file": "Fennel bulb.jpg",
+  "author": "Tiia Monto",
+  "license": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Fennel_bulb.jpg"
+ },
+ "endive": {
+  "file": "Witlof_en_wortel.jpg",
+  "author": "No machine-readable author provided. Rasbak assumed (based on copyright claims).",
+  "license": "CC BY-SA 3.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Witlof_en_wortel.jpg"
+ },
+ "echalote": {
+  "file": "Échalotes_variétés.jpg",
+  "author": "Arn",
+  "license": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:%C3%89chalotes_vari%C3%A9t%C3%A9s.jpg"
+ },
+ "peche": {
+  "file": "Flameprince_peaches.jpg",
+  "author": "",
+  "license": "Public domain",
+  "url": "https://commons.wikimedia.org/wiki/File:Flameprince_peaches.jpg"
+ },
+ "ananas": {
+  "file": "Pineapple fruit 2.jpg",
+  "author": "Wilfredor",
+  "license": "CC0",
+  "url": "https://commons.wikimedia.org/wiki/File:Pineapple_fruit_2.jpg"
+ },
+ "cerises": {
+  "file": "Bing_Cherries_(USDA_ARS).jpg",
+  "author": "Peggy Greb, USDA ARS",
+  "license": "Public domain",
+  "url": "https://commons.wikimedia.org/wiki/File:Bing_Cherries_(USDA_ARS).jpg"
+ },
+ "citron_vert": {
+  "file": "Backyard_limes.jpg",
+  "author": "Wtstoffs at en.wikipedia",
+  "license": "Public domain",
+  "url": "https://commons.wikimedia.org/wiki/File:Backyard_limes.jpg"
+ },
+ "pamplemousse": {
+  "file": "Grapefruits - whole-halved-segments.jpg",
+  "author": "Ivar Leidus",
+  "license": "CC BY-SA 4.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Grapefruits_-_whole-halved-segments.jpg"
+ },
+ "melon": {
+  "file": "Melons de Cavaillon au marché d'Orange 02.jpg",
+  "author": "jean-louis zimmermann",
+  "license": "CC BY 2.0",
+  "url": "https://commons.wikimedia.org/wiki/File:Melons_de_Cavaillon_au_march%C3%A9_d%27Orange_02.jpg"
+ }
+}

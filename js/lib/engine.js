@@ -1,6 +1,7 @@
 import { ING, INGREDIENTS, SWAP_GROUPS } from '../data/ingredients.js';
 import { bank, bankProduct, bankForIng, STORES, TIERS } from '../data/products.js';
 import { RECIPES, RECIPE, MEAL_KEYS } from '../data/recipes.js';
+import { PRODUCE_PHOTOS } from '../data/produce.js';
 import { today, addDays, diffDays, weekDays, mondayOf, dlcInfo } from './dates.js';
 
 export const uid = () => (crypto.randomUUID ? crypto.randomUUID().slice(0, 13) : Math.random().toString(36).slice(2, 12));
@@ -36,11 +37,24 @@ export const GOAL_LABEL = { gain: 'Prendre du poids', maintain: 'Garder mon poid
 
 export const userStores = (s) => (s.profile.stores?.length ? s.profile.stores : ['leclerc']);
 
+export const photoFor = (ing) => PRODUCE_PHOTOS[ing] || null;
+const withPhoto = (p) => (p && !p.image && PRODUCE_PHOTOS[p.ing] ? { ...p, image: PRODUCE_PHOTOS[p.ing], stockPhoto: true } : p);
 export function getProduct(s, id) {
   if (!id) return null;
   const b = bankProduct(id);
-  if (b) { const ov = s.productOverrides?.[id]; return ov ? { ...b, ...ov, id } : b; }
-  return s.customProducts.find((p) => p.id === id) || null;
+  if (b) { const ov = s.productOverrides?.[id]; return withPhoto(ov ? { ...b, ...ov, id } : b); }
+  return withPhoto(s.customProducts.find((p) => p.id === id) || null);
+}
+// Fiche de référence d'un aliment : le produit que tu as scanné, photographié ou corrigé
+const isRef = (p) => p && ((p.image && !p.stockPhoto) || p.barcode || p.offName || p.edited || p.nutri);
+export function refProduct(s, ing) {
+  const p = getProduct(s, s.brandPrefs?.[ing]);
+  return p && p.ing === ing && isRef(p) ? p : null;
+}
+export function refProducts(s) {
+  const out = {};
+  for (const ing of Object.keys(s.brandPrefs || {})) { const p = refProduct(s, ing); if (p) out[ing] = p; }
+  return out;
 }
 export function productTitle(p) {
   if (!p) return '';

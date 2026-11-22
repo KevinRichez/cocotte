@@ -2,7 +2,7 @@ import { html, useState, useEffect, useRef, useMemo } from '../lib/h.js';
 import { Icon, Sheet, Chip, useDebounced } from './ui.js';
 import { ING, INGREDIENTS, CATEGORIES, guessIngredient } from '../data/ingredients.js';
 import { STORES, AISLES, storeLabel } from '../data/products.js';
-import { searchProducts, productPrice, euro, userStores, norm, productTitle, productSize } from '../lib/engine.js';
+import { searchProducts, productPrice, euro, userStores, norm, productTitle, productSize, photoFor } from '../lib/engine.js';
 import { searchOnline, lookupBarcode } from '../lib/off.js';
 import { startScan, decodeImage } from '../lib/scanner.js';
 import { saveCustomProduct } from '../actions.js';
@@ -30,8 +30,9 @@ export function BrandPill({ p }) {
   return html`<span class="bline"><span class=${`bpill ${TIER_TONE[p.tier] || 'mdd'}`} style=${p.tier === 'mdd' ? { background: st.color } : null}>${brand}</span><span class="bstore"><i style=${{ background: st.color }}></i>${st.name}</span></span>`;
 }
 
-export function Thumb({ p, emoji, cls = 'pick-emoji' }) {
-  if (p?.image) return html`<img class=${cls === 'pick-emoji' ? 'pick-img' : 'thumb-img'} src=${p.image} alt="" loading="lazy" referrerpolicy="no-referrer" />`;
+export function Thumb({ p, emoji, ing, cls = 'pick-emoji' }) {
+  const src = p?.image || photoFor(ing || p?.ing);
+  if (src) return html`<img class=${cls === 'pick-emoji' ? 'pick-img' : 'thumb-img'} src=${src} alt="" loading="lazy" referrerpolicy="no-referrer" />`;
   return html`<span class=${cls}>${emoji || p?.emoji || ING[p?.ing]?.emoji || '🛒'}</span>`;
 }
 
@@ -46,15 +47,15 @@ export function ProductRow({ s, p, onClick, right }) {
   </button>`;
 }
 
-export function ProductSearch({ s, onPick, placeholder = 'Rechercher un produit', autoFocus = true }) {
+export function ProductSearch({ s, onPick, placeholder = 'Rechercher un produit', autoFocus = true, autoScan = false }) {
   const [q, setQ] = useState('');
   const [online, setOnline] = useState({ q: '', list: [], loading: false, error: null });
-  const [scanning, setScanning] = useState(false);
+  const [scanning, setScanning] = useState(autoScan);
   const [creating, setCreating] = useState(null);
   const input = useRef(null);
   const dq = useDebounced(q, 160);
   const local = useMemo(() => searchProducts(s, dq, { limit: 40 }), [dq, s.customProducts, s.profile.stores]);
-  useEffect(() => { if (autoFocus) setTimeout(() => input.current?.focus(), 250); }, []);
+  useEffect(() => { if (autoFocus && !autoScan) setTimeout(() => input.current?.focus(), 250); }, []);
 
   const runOnline = async (query = q) => {
     if (norm(query).length < 3) return;
@@ -62,7 +63,12 @@ export function ProductSearch({ s, onPick, placeholder = 'Rechercher un produit'
     try { setOnline({ q: query, list: await searchOnline(query), loading: false, error: null }); }
     catch { setOnline({ q: query, list: [], loading: false, error: 'Recherche en ligne indisponible pour le moment.' }); }
   };
-  const pickOff = (o) => { const id = saveCustomProduct(offToCustom(o)); onPick(id); };
+  // Produit déjà connu (scanné ou corrigé avant) : on garde ta fiche telle quelle
+  const pickOff = (o, via) => {
+    const known = o.barcode && (s.customProducts.find((p) => p.barcode === o.barcode)?.id
+      || Object.entries(s.productOverrides || {}).find(([, ov]) => ov.barcode === o.barcode)?.[0]);
+    onPick(known || saveCustomProduct(offToCustom(o)), via);
+  };
   const showOnline = online.q && norm(online.q) === norm(q);
 
   return html`<div class="psearch">
@@ -86,15 +92,15 @@ export function ProductSearch({ s, onPick, placeholder = 'Rechercher un produit'
         <${Icon} name="plus" size=${17} />Créer « ${q.trim()} »</button>
     </div>`}
 
-    <${ScanSheet} open=${scanning} s=${s} onClose=${() => setScanning(false)}
-      onFound=${(o) => { setScanning(false); pickOff(o); }}
+    <${ScanSheet} open=${scanning} s=${s} direct onClose=${() => setScanning(false)}
+      onFound=${(o) => { setScanning(false); pickOff(o, 'scan'); }}
       onUnknown=${(code) => { setScanning(false); setCreating({ name: '', barcode: code }); }} />
     <${CreateProductSheet} draft=${creating} s=${s} onClose=${() => setCreating(null)}
-      onSaved=${(id) => { setCreating(null); onPick(id); }} />
+      onSaved=${(id) => { const via = creating?.barcode ? 'scan' : 'create'; setCreating(null); onPick(id, via); }} />
   </div>`;
 }
 
-export function ScanSheet({ open, onClose, onFound, onUnknown }) {
+export function ScanSheet({ open, onClose, onFound, onUnknown, direct }) {
   const video = useRef(null);
   const [status, setStatus] = useState('');
   const [found, setFound] = useState(null);
@@ -107,7 +113,8 @@ export function ScanSheet({ open, onClose, onFound, onUnknown }) {
     setStatus('Recherche du produit…');
     try {
       const p = await lookupBarcode(raw);
-      if (p) { setFound(p); setStatus(''); }
+      if (p && direct) { setStatus(''); onFound(p); }
+      else if (p) { setFound(p); setStatus(''); }
       else { setStatus(''); onUnknown(String(raw).replace(/\D/g, '')); }
     } catch (e) { setStatus(e.message === 'Code-barres invalide' ? e.message : 'Connexion impossible, réessaie.'); busy.current = false; }
   };

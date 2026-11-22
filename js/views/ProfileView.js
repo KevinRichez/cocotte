@@ -10,6 +10,7 @@ import { dlcInfo, fmtShort, addDays, today } from '../lib/dates.js';
 import { kcalFmt, targets, GOAL_LABEL, getProduct, estimateDlc, TIER_META, TIER_KEYS, allRecipes, norm, cleanName, productTitle, productSize } from '../lib/engine.js';
 import { addStock, updateStockItem, removeStockItem, setTier, setProfile, enrichFromScan, resetStockAndHistory, restockCandidates, restockProducts } from '../actions.js';
 import { toast } from '../lib/toast.js';
+import { PRODUCE_CREDITS } from '../data/produce.js';
 
 export function ProfileView() {
   const s = useStore();
@@ -100,7 +101,7 @@ function StockRow({ s, x, onEdit }) {
   const d = dlcInfo(x.dlc);
   return html`<${Swipeable} onLeft=${() => removeStockItem(x.id)} leftLabel="Fini">
     <div class="list-item" onClick=${onEdit} style="cursor:pointer">
-      <${Thumb} p=${getProduct(s, x.productId)} emoji=${ing?.emoji} cls="thumb sm stock-thumb" />
+      <${Thumb} p=${getProduct(s, x.productId)} ing=${x.ing} emoji=${ing?.emoji} cls="thumb sm stock-thumb" />
       <div class="grow" style="min-width:0">
         <div class="small strong clamp2">${cleanName(x.name)}</div>
         <div class="subtle xs">${lotQty(x, getProduct(s, x.productId))}</div>
@@ -134,8 +135,11 @@ function RestockSheet({ open, cands, onClose }) {
 function AddStockSheet({ open, s, onClose }) {
   const [pid, setPid] = useState(null);
   const [f, setF] = useState(null);
-  const close = () => { setPid(null); setF(null); onClose(); };
-  const choose = (id) => {
+  const [burst, setBurst] = useState(false);
+  const [searchKey, setSearchKey] = useState(0);
+  const close = () => { setPid(null); setF(null); setBurst(false); setSearchKey(0); onClose(); };
+  const choose = (id, via) => {
+    setBurst(via === 'scan');
     const st = getState();
     const p = getProduct(st, id);
     if (!p) return;
@@ -148,16 +152,19 @@ function AddStockSheet({ open, s, onClose }) {
   const hasPack = p && p.size && (ing || p.unit);
   const qty = !p ? 0 : hasPack ? p.size * f.packs : ing ? f.grams : f.packs;
   const sizeLabel = hasPack ? (ing ? packLabel(ing, p.size) : fmtQty(p.size, p.unit)) : '';
-  const save = () => {
+  const save = (next) => {
     addStock({ productId: p.id, ing: ing ? p.ing : null, name: productTitle(p), qty, unit: !ing && hasPack ? p.unit : null, dlc: f.dlc || null, location: f.location, nutri: p.nutri });
-    close();
+    if (next) { setPid(null); setF(null); setSearchKey(searchKey + 1); } else close();
   };
   const set = (patch) => setF({ ...f, ...patch });
   const nutri = p?.nutri || (ing && ing.unit !== 'pc' ? { kcal: ing.kcal, prot: ing.prot } : null);
   return html`<${Sheet} open=${open} onClose=${close} title=${p ? 'Ranger le produit' : 'Ajouter un produit'} tall=${!p}
-    footer=${p ? html`<div class="row"><button type="button" class="btn ghost" onClick=${() => { setPid(null); setF(null); }}>Retour</button>
-      <button type="button" class="btn primary grow" onClick=${save}><${Icon} name="check" size=${18} />Ranger au ${f.location === 'frigo' ? 'frigo' : 'placard'}</button></div>` : null}>
-    ${!p && html`<${ProductSearch} s=${s} onPick=${choose} placeholder="Steak, riz, lait…" />`}
+    footer=${p ? (burst
+      ? html`<div class="row"><button type="button" class="btn ghost" onClick=${() => save(false)}>Ranger et fermer</button>
+          <button type="button" class="btn primary grow" onClick=${() => save(true)}><${Icon} name="barcode" size=${18} />Ranger · scanner le suivant</button></div>`
+      : html`<div class="row"><button type="button" class="btn ghost" onClick=${() => { setPid(null); setF(null); }}>Retour</button>
+          <button type="button" class="btn primary grow" onClick=${() => save(false)}><${Icon} name="check" size=${18} />Ranger au ${f.location === 'frigo' ? 'frigo' : 'placard'}</button></div>`) : null}>
+    ${!p && html`<${ProductSearch} key=${searchKey} s=${s} onPick=${choose} autoScan=${searchKey > 0} placeholder="Steak, riz, lait…" />`}
     ${p && html`<div>
       <div class="card flat row" style="gap:12px">
         ${p.image ? html`<img class="pick-img lg" src=${p.image} alt="" referrerpolicy="no-referrer" />` : html`<span class="thumb sm" style="background:var(--surface-2)">${p.emoji || ing?.emoji || '🛒'}</span>`}
@@ -384,5 +391,7 @@ function ProfileSheet({ open, onClose, s }) {
       </div>
     </div>
     <${AutoBackups} onClose=${onClose} />
+    <details class="subtle xs" style="margin-top:12px"><summary>Crédits photos des fruits et légumes</summary>
+      <div style="margin-top:6px">${PRODUCE_CREDITS.map((c) => html`<div>${ING[c.ing]?.name} : ${c.author}, ${c.license}, Wikimedia Commons</div>`)}</div></details>
   </${Sheet}>`;
 }

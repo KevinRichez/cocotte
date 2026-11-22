@@ -6,7 +6,7 @@ import { AISLES, STORES, storeLabel } from '../data/products.js';
 import { ING, INGREDIENTS, CATEGORIES, fmtQty } from '../data/ingredients.js';
 import { fmtDayLong, fmtShort, relDay, today } from '../lib/dates.js';
 import {
-  listItemInfo, listTotal, euro, productPrice, estimateDlc, getProduct, productsForIng, unitPriceLabel, searchProducts, userStores, productTitle, productSize,
+  listItemInfo, listTotal, euro, productPrice, estimateDlc, getProduct, productsForIng, unitPriceLabel, searchProducts, userStores, productTitle, productSize, refProducts, photoFor,
 } from '../lib/engine.js';
 import { parseTicket, SAMPLE_TICKET } from '../lib/ticket.js';
 import { toast } from '../lib/toast.js';
@@ -307,10 +307,10 @@ function TicketItem({ it, dlc, open, onToggle, onDlc, onChange, onIgnore }) {
   };
   return html`<div class=${`ticket-item ${open ? 'open' : ''}`}>
     <button type="button" class="list-item ti-head" onClick=${onToggle}>
-      ${it.image ? html`<img class="pick-img" src=${it.image} alt="" referrerpolicy="no-referrer" />` : html`<span class="ti-emoji">${ing?.emoji || '🛒'}</span>`}
+      ${it.image || photoFor(it.ing) ? html`<img class="pick-img" src=${it.image || photoFor(it.ing)} alt="" referrerpolicy="no-referrer" />` : html`<span class="ti-emoji">${ing?.emoji || '🛒'}</span>`}
       <div class="grow" style="min-width:0">
         <div class="small strong clamp2">${it.name}</div>
-        <div class="subtle xs"><span class=${it.sizeFromTicket ? '' : 'est'}>${sizeTxt}${it.sizeFromTicket ? '' : ' (estimé)'}</span> · ${it.qty > 1 ? `${it.qty} × ` : ''}${euro(it.unitPrice)} · ${it.storage === 'frigo' ? '🧊' : '📦'}${it.frozen ? ' surgelé' : ''}${it.scanned ? ' · 📷 scanné' : it.remembered ? ' · ✓ retenu' : ''}${!ing ? ' · aliment ?' : ''}</div>
+        <div class="subtle xs"><span class=${it.sizeFromTicket ? '' : 'est'}>${sizeTxt}${it.sizeFromTicket ? '' : ' (estimé)'}</span> · ${it.qty > 1 ? `${it.qty} × ` : ''}${euro(it.unitPrice)} · ${it.storage === 'frigo' ? '🧊' : '📦'}${it.frozen ? ' surgelé' : ''}${it.scanned ? ' · 📷 scanné' : it.remembered ? ' · ✓ retenu' : it.fromRef ? ' · ✓ ta fiche' : ''}${!ing ? ' · aliment ?' : ''}</div>
       </div>
       <${Icon} name=${open ? 'chevU' : 'edit'} size=${16} class="muted" />
     </button>
@@ -373,7 +373,7 @@ function TicketSheet({ open, onClose, s, file }) {
   const close = () => { setRaw(''); setParsed(null); setDlcs({}); setBusy(null); setError(null); onClose(); };
   const [editing, setEditing] = useState(null);
   const analyse = (text = raw) => {
-    const res = parseTicket(text.slice(0, 20000), userStores(s)[0], s.customProducts);
+    const res = parseTicket(text.slice(0, 20000), userStores(s)[0], s.customProducts, refProducts(s));
     const est = {};
     for (const it of res.items) est[it.key] = estimateDlc(s, it.productId, it.ing);
     setDlcs(est); setParsed(res); setEditing(null);
@@ -419,7 +419,7 @@ function TicketSheet({ open, onClose, s, file }) {
       <div class="list">${parsed.items.filter((it) => !it.ignored).map((it) => html`<${TicketItem} key=${it.key} it=${it} dlc=${dlcs[it.key] || ''}
         open=${editing === it.key} onToggle=${() => setEditing(editing === it.key ? null : it.key)}
         onDlc=${(v) => setDlcs({ ...dlcs, [it.key]: v })}
-        onChange=${(patch) => setParsed((cur) => ({ ...cur, items: cur.items.map((x) => (x.key === it.key ? { ...x, ...patch } : x)) }))}
+        onChange=${(patch) => setParsed((cur) => ({ ...cur, items: cur.items.map((x) => (x.key === it.key ? { ...x, ...patch, ...("name" in patch || "size" in patch ? { edited: true } : {}) } : x)) }))}
         onIgnore=${() => { setEditing(null); setParsed((cur) => ({ ...cur, items: cur.items.map((x) => (x.key === it.key ? { ...x, ignored: true, ignoredReason: 'Ignoré par toi' } : x)) })); }} />`)}</div>
       ${parsed.items.some((it) => it.ignored) && html`<details class="ignored-box">
         <summary>Ignorés (${parsed.items.filter((it) => it.ignored).length}) · comptés dans le budget, pas rangés</summary>

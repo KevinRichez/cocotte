@@ -7,7 +7,7 @@ import { ING, fmtQty } from '../data/ingredients.js';
 import { today, addDays, dayShort, dayNum, relDay } from '../lib/dates.js';
 import {
   recipeLines, nutrition, linesCost, stockQty, swapOptions, budgetLevel, budgetLabel, euro, kcalFmt, nextFreeSlot,
-  getRecipe, recipeTier, ingTier, canCook, slotBudget, servingsFor,
+  getRecipe, recipeTier, ingTier, canCook, slotBudget, servingsFor, refProduct, photoFor, productTitle,
 } from '../lib/engine.js';
 import { planRecipe, addIngsToList, setTier, deleteRecipe } from '../actions.js';
 
@@ -91,11 +91,14 @@ export function RecipeSheet({ recipeId, onClose, target }) {
         const status = ing.staple ? (have > 0 ? 'ok' : 'no') : have >= l.qty ? 'ok' : have > 0 ? 'part' : 'no';
         const opts = l.swap ? swapOptions(r.ingredients[l.idx], s) : [];
         const it = ingTier(s, l.ing);
+        const ref = refProduct(s, l.ing);
         return html`<div key=${l.idx}>
           <div class="list-item" style="min-height:56px">
-            <span class="thumb sm" style="background:var(--surface-2)">${ing.emoji}</span>
+            ${(ref?.image || photoFor(l.ing))
+              ? html`<img class="thumb-img thumb sm" src=${ref?.image || photoFor(l.ing)} alt="" loading="lazy" referrerpolicy="no-referrer" />`
+              : html`<span class="thumb sm" style="background:var(--surface-2)">${ing.emoji}</span>`}
             <div class="grow" style="min-width:0">
-              <div class="strong small">${ing.name}${it === 'refuge' ? ' 💙' : it === 'doux' ? ' 🌱' : ''}</div>
+              <div class="strong small">${ref ? productTitle(ref) : ing.name}${it === 'refuge' ? ' 💙' : it === 'doux' ? ' 🌱' : ''}</div>
               <div class="subtle row" style="gap:6px"><span class=${`dot ${status}`}></span>
                 ${status === 'ok' ? 'En stock' : status === 'part' ? `En partie (${fmtQty(have, ing.unit, l.ing)})` : 'À acheter'}
                 ${l.swapped && html`<span>· remplace ${ING[l.swapped].name.toLowerCase()}</span>`}</div>
