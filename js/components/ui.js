@@ -68,9 +68,38 @@ export function TierPicker({ value, onChange, compact }) {
 }
 
 let openSheets = 0;
+// Bouton retour Android : ferme la fenêtre ouverte, sinon revient à l'onglet précédent
+const sheetStack = [];
+let ignorePops = 0;
+let queuedPushes = 0;
+const pushSheetState = () => { if (ignorePops > 0) queuedPushes++; else history.pushState({ sheet: true }, ''); };
+addEventListener('popstate', (e) => {
+  if (ignorePops > 0) {
+    ignorePops--;
+    if (!ignorePops) for (; queuedPushes > 0; queuedPushes--) history.pushState({ sheet: true }, '');
+    return;
+  }
+  const top = sheetStack[sheetStack.length - 1];
+  if (top) { top.popped = true; top.close(); return; }
+  dispatchEvent(new CustomEvent('cocotte-back', { detail: e.state }));
+});
+
 export function Sheet({ open, onClose, title, subtitle, children, footer, tall }) {
   const [dy, setDy] = useState(0);
   const start = useRef(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    if (!open) return;
+    const entry = { popped: false, close: () => closeRef.current?.() };
+    sheetStack.push(entry);
+    pushSheetState();
+    return () => {
+      const i = sheetStack.indexOf(entry);
+      if (i >= 0) sheetStack.splice(i, 1);
+      if (!entry.popped) { ignorePops++; history.back(); }
+    };
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     setDy(0);

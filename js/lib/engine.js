@@ -142,7 +142,15 @@ export function searchProducts(s, query, { limit = 40 } = {}) {
 export function searchIngredients(query, { limit = 30 } = {}) {
   const q = norm(query);
   if (!q) return INGREDIENTS.slice(0, limit);
-  return INGREDIENTS.filter((i) => i.keys.includes(q)).sort((a, b) => (norm(a.name).startsWith(q) ? -1 : 0) - (norm(b.name).startsWith(q) ? -1 : 0)).slice(0, limit);
+  const words = q.split(/[^a-z0-9%]+/).filter((w) => w.length > 1).map((w) => (w.length > 3 ? w.replace(/s$/, '') : w));
+  const score = (i) => {
+    const n = norm(i.name);
+    if (n.startsWith(q)) return 100;
+    if (i.keys.includes(q)) return 80;
+    const hit = words.filter((w) => i.keys.includes(w)).length;
+    return hit === words.length ? 60 + hit : hit >= 1 && words[0] && i.keys.includes(words[0]) ? 20 + hit : 0;
+  };
+  return INGREDIENTS.map((i) => [i, score(i)]).filter(([, sc]) => sc > 0).sort((a, b) => b[1] - a[1]).slice(0, limit).map(([i]) => i);
 }
 
 export function allRecipes(s) {
@@ -271,6 +279,7 @@ export function addToInventory(draft, { ing, qty, name, dlc, location, productId
 }
 
 export function consumeLines(draft, lines) {
+  const taken = [];
   for (const l of lines) {
     if (ING[l.ing]?.staple) continue;
     let left = l.qty;
@@ -281,10 +290,28 @@ export function consumeLines(draft, lines) {
       if (left <= 0) break;
       const take = Math.min(lot.qty, left);
       lot.qty = Math.round((lot.qty - take) * 10) / 10; left -= take;
+      if (take > 0) taken.push({ lot: { ...lot, qty: 0 }, take });
     }
   }
   draft.inventory = draft.inventory.filter((x) => x.qty > 0);
+  return taken;
 }
+// Remet en stock ce qu'un repas avait consommé (le lot réapparaît s'il avait disparu)
+export function restoreTaken(draft, taken = []) {
+  for (const { lot, take } of taken) {
+    const cur = draft.inventory.find((x) => x.id === lot.id);
+    if (cur) cur.qty = Math.round((cur.qty + take) * 10) / 10;
+    else draft.inventory.push({ ...lot, qty: take });
+  }
+}
+// Produits en stock qui ressemblent à l'aliment mais n'y sont pas reliés
+export function linkCandidates(s, ing) {
+  const eq = new Set([ing, ...equivOf(ing)]);
+  const words = norm(ING[ing].name).split(/[^a-z]+/).filter((w) => w.length > 3).map((w) => w.replace(/s$/, ''));
+  if (!words.length) return [];
+  return s.inventory.filter((x) => !eq.has(x.ing) && !dlcInfo(x.dlc).past && norm(x.name).includes(words[0]));
+}
+export const pastStock = (s, ing) => s.inventory.filter((x) => (x.ing === ing || equivOf(ing).includes(x.ing)) && dlcInfo(x.dlc).past);
 
 export function estimateDlc(s, productId, ing, from = today()) {
   const p = getProduct(s, productId);

@@ -4,7 +4,7 @@ import { MEALS, MEAL_KEYS, RECIPE } from './data/recipes.js';
 import { ING, guessIngredient } from './data/ingredients.js';
 import { today, relDay } from './lib/dates.js';
 import {
-  uid, recipeLines, consumeLines, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
+  uid, recipeLines, consumeLines, restoreTaken, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
   listItemInfo, listTotal, euro, getProduct, getRecipe, defaultProductFor, slotKcal, isSlotPast,
 } from './lib/engine.js';
 
@@ -25,7 +25,7 @@ function eatInDraft(d, date, meal) {
   if (!slot || slot.status !== 'planned') return false;
   slot.status = 'eaten';
   const r = getRecipe(d, slot.recipeId);
-  if (r) consumeLines(d, recipeLines(r, slot.swaps, slot.servings || 1));
+  if (r) slot.consumed = consumeLines(d, recipeLines(r, slot.swaps, slot.servings || 1));
   return true;
 }
 
@@ -70,6 +70,7 @@ export function resetSlot(date, meal) {
   update((d) => {
     const slot = d.plan[date]?.[meal];
     if (!slot) return;
+    if (slot.status === 'eaten' && slot.consumed) restoreTaken(d, slot.consumed);
     if (slot.recipeId) d.plan[date][meal] = { recipeId: slot.recipeId, swaps: slot.swaps || {}, status: 'planned', ...(slot.servings ? { servings: slot.servings } : {}) };
     else delete d.plan[date][meal];
   });
@@ -333,6 +334,13 @@ export function relinkStockItem(id, { ing, unit }) {
     const it = d.inventory.find((x) => x.id === id);
     if (!it) return;
     const u = ing ? ING[ing].unit : unit;
+    const before = it.ing ? ING[it.ing].unit : it.unit;
+    if (before && u && before !== u) {
+      // Changement d'unité (ex : tortillas en g vers pièces) : estimation à partir du nombre de paquets
+      const prod = getProduct(d, it.productId);
+      const packs = prod?.size ? Math.max(1, Math.round(it.qty / prod.size)) : 1;
+      it.qty = ing ? packs * (ING[ing].pack?.size || 1) : packs;
+    }
     it.ing = ing || null;
     it.unit = ing ? null : u;
     const p = it.productId && d.customProducts.find((x) => x.id === it.productId);
@@ -355,6 +363,19 @@ export function useProductForIng(productId, ing) {
     if (p && !p.ing && ing) Object.assign(p, { ing, unit: ING[ing].unit, edited: true });
     const prod = getProduct(d, productId);
     if (prod?.ing === ing) d.brandPrefs[ing] = productId;
+  });
+}
+
+// Format d'un paquet (ex : 1000 g) : la quantité en stock ne change pas, seul l'affichage passe à « 3 × 1 kg »
+export function setProductSize(lotId, size) {
+  update((d) => {
+    const it = d.inventory.find((x) => x.id === lotId);
+    if (!it?.productId) return;
+    const unit = it.ing ? ING[it.ing].unit : it.unit;
+    const p = d.customProducts.find((x) => x.id === it.productId);
+    const patch = { size: size > 0 ? size : null, unit, edited: true };
+    if (p) Object.assign(p, patch);
+    else if (getProduct(d, it.productId)) d.productOverrides[it.productId] = { ...(d.productOverrides[it.productId] || {}), ...patch };
   });
 }
 

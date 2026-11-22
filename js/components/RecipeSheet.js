@@ -7,9 +7,9 @@ import { ING, fmtQty } from '../data/ingredients.js';
 import { today, addDays, dayShort, dayNum, relDay } from '../lib/dates.js';
 import {
   recipeLines, nutrition, linesCost, stockQty, swapOptions, budgetLevel, budgetLabel, euro, kcalFmt, nextFreeSlot,
-  getRecipe, recipeTier, ingTier, canCook, slotBudget, servingsFor, refProduct, photoFor, productTitle, fmtPortion, stockSubstitute,
+  getRecipe, recipeTier, ingTier, canCook, slotBudget, servingsFor, refProduct, photoFor, productTitle, fmtPortion, stockSubstitute, linkCandidates, pastStock, cleanName,
 } from '../lib/engine.js';
-import { planRecipe, addIngsToList, setTier, deleteRecipe } from '../actions.js';
+import { planRecipe, addIngsToList, setTier, deleteRecipe, relinkStockItem } from '../actions.js';
 import { confirmAction } from '../lib/confirm.js';
 
 export function RecipeSheet({ recipeId, onClose, target }) {
@@ -108,6 +108,14 @@ export function RecipeSheet({ recipeId, onClose, target }) {
             <span class="small strong num">${ing.staple ? 'un peu' : fmtQty(l.qty, ing.unit, l.ing)}</span>
             ${opts.length > 1 && html`<button type="button" class="icon-btn sm" aria-label="Échanger" onClick=${() => setSwapIdx(swapIdx === l.idx ? null : l.idx)}><${Icon} name="swap" size=${15} /></button>`}
           </div>
+          ${status !== 'ok' && !ing.staple && (() => {
+            const cand = linkCandidates(s, l.ing)[0];
+            const past = pastStock(s, l.ing);
+            if (cand) return html`<div class="link-hint">Tu as « ${cleanName(cand.name)} » ?
+              <button type="button" class="btn soft sm" onClick=${() => relinkStockItem(cand.id, { ing: l.ing })}>Le compter comme ${ing.name.toLowerCase()}</button></div>`;
+            if (past.length) return html`<div class="link-hint">Tu en as, mais avec une date passée : vérifie-la dans ton stock.</div>`;
+            return null;
+          })()}
           ${swapIdx === l.idx && html`<div style="padding:0 14px 12px">
             <div class="chips">${opts.map((o) => html`<${Chip} sm active=${l.ing === o}
               onClick=${() => { setSwaps({ ...swaps, [l.idx]: o === r.ingredients[l.idx].ing ? undefined : o }); setSwapIdx(null); }}>

@@ -2,13 +2,13 @@ import { html, useState, useMemo } from '../lib/h.js';
 import { useStore, update, getState, restore, replaceState, listBackups } from '../store.js';
 import { migrate } from '../data/seed.js';
 import { Icon, Chip, Badge, Seg, Sheet, Swipeable, Stepper, Empty, TierPicker } from '../components/ui.js';
-import { ProductSearch, NutritionTable, Thumb, BrandPill, ScanSheet } from '../components/ProductSearch.js';
+import { ProductSearch, NutritionTable, Thumb, BrandPill, ScanSheet, IngredientSearch } from '../components/ProductSearch.js';
 import { ING, INGREDIENTS, CATEGORIES, fmtQty } from '../data/ingredients.js';
 import { STORES, storeLabel, packLabel } from '../data/products.js';
 import { EQUIPMENT, COOKING_EQUIPMENT } from '../data/recipes.js';
 import { dlcInfo, fmtShort, addDays, today } from '../lib/dates.js';
 import { kcalFmt, targets, GOAL_LABEL, getProduct, estimateDlc, TIER_META, TIER_KEYS, allRecipes, norm, cleanName, productTitle, productSize } from '../lib/engine.js';
-import { addStock, updateStockItem, removeStockItem, setTier, setProfile, enrichFromScan, resetStockAndHistory, restockCandidates, restockProducts, relinkStockItem } from '../actions.js';
+import { addStock, updateStockItem, removeStockItem, setTier, setProfile, enrichFromScan, resetStockAndHistory, restockCandidates, restockProducts, relinkStockItem, setProductSize } from '../actions.js';
 import { toast } from '../lib/toast.js';
 import { confirmAction } from '../lib/confirm.js';
 import { PRODUCE_CREDITS } from '../data/produce.js';
@@ -208,7 +208,9 @@ function StockEditSheet({ id, s, onClose }) {
   if (!x) return html`<${Sheet} open=${false} />`;
   const ing = ING[x.ing];
   const unit = ing?.unit || x.unit;
-  const step = !unit || unit === 'pc' ? 1 : unit === 'ml' ? 100 : 50;
+  const prodX = getProduct(s, x.productId);
+  const packSize = prodX?.size && (prodX.unit || ING[prodX.ing]?.unit) === unit ? prodX.size : null;
+  const step = packSize && unit !== 'pc' ? packSize : !unit || unit === 'pc' ? 1 : unit === 'ml' ? 100 : 50;
   const nutri = x.nutri || getProduct(s, x.productId)?.nutri || (ing && ing.unit !== 'pc' ? { kcal: ing.kcal, prot: ing.prot } : null);
   return html`<${Sheet} open=${true} onClose=${onClose} title=${cleanName(x.name)} subtitle=${x.addedAt ? `Ajouté le ${fmtShort(x.addedAt)}` : ''}
     footer=${html`<div class="row">
@@ -226,21 +228,21 @@ function StockEditSheet({ id, s, onClose }) {
     <input id="st-name" class="field" maxlength="80" value=${x.name} onChange=${(e) => { const v = e.currentTarget.value.trim(); if (v) updateStockItem(x.id, { name: v.slice(0, 80) }); }} />
     <div class="card flat" style="margin-top:12px">
       <div class="row between"><span class="small strong">Quantité</span>
-        <${Stepper} value=${x.qty} min=${0} step=${step} format=${(v) => (unit ? fmtQty(v, unit, x.ing) : v)}
+        <${Stepper} value=${x.qty} min=${0} step=${step} format=${(v) => lotQty({ ...x, qty: v }, prodX)}
           onChange=${(v) => { if (v <= 0) { removeStockItem(x.id); onClose(); } else updateStockItem(x.id, { qty: v }); }} /></div>
+      ${x.productId && unit && unit !== 'pc' && html`<div class="hr"></div>
+      <div class="row between"><span class="small strong">Format d’un paquet</span>
+        <div class="row" style="gap:6px"><input class="field num" style="width:96px;height:40px" inputmode="decimal" placeholder="Ex : 1000"
+          value=${packSize ?? ''} onChange=${(e) => { const v = parseFloat(e.currentTarget.value.replace(',', '.')); setProductSize(x.id, isFinite(v) && v > 0 ? v : null); }} /><span class="small">${unit}</span></div></div>
+      <div class="subtle xs" style="margin-top:6px">Ex : 3000 g en stock avec un format de 1000 g s’affiche « 3 × 1 kg ». La recette déduit les grammes, le format du paquet ne change jamais.</div>`}
       <div class="hr"></div>
       <div class="row between"><span class="small strong">Unité</span>
         <div class="chips">${[['g', 'g'], ['ml', 'ml'], ['pc', 'pièces']].map(([u, l]) => html`<${Chip} sm active=${unit === u} onClick=${() => { if (unit !== u) relinkStockItem(x.id, { ing: ing?.unit === u ? x.ing : null, unit: u }); }}>${l}</${Chip}>`)}</div></div>
       <div class="hr"></div>
-      <label class="small strong" for="st-ing">Compte dans les recettes comme</label>
-      <select id="st-ing" class="field" style="margin-top:6px" value=${x.ing || ''} onChange=${(e) => relinkStockItem(x.id, { ing: e.currentTarget.value || null, unit })}>
-        <option value="">Aucun aliment (pas déduit par les recettes)</option>
-        ${Object.entries(CATEGORIES).map(([k, c]) => {
-          const rows = INGREDIENTS.filter((i) => i.cat === k && (!unit || i.unit === unit || i.id === x.ing));
-          return rows.length > 0 && html`<optgroup label=${c.label}>${rows.map((i) => html`<option value=${i.id}>${i.emoji} ${i.name}</option>`)}</optgroup>`;
-        })}
-      </select>
-      <div class="subtle xs" style="margin-top:6px">Ex : ta pulpe de tomates en g compte comme « Pulpe ou passata de tomate ». Ton choix est retenu pour tes prochains tickets.</div>
+      <div class="small strong" style="margin-bottom:6px">Compte dans les recettes comme</div>
+      ${!x.ing && html`<div class="subtle xs" style="margin-bottom:6px">Aucun aliment : ce produit n’est pas déduit par les recettes.</div>`}
+      <${IngredientSearch} value=${x.ing} allowNone onPick=${(v) => relinkStockItem(x.id, { ing: v, unit })} />
+      <div class="subtle xs" style="margin-top:6px">Ex : tes tortillas comptent comme « Tortillas de blé ». Ton choix est retenu pour tes prochains tickets.</div>
       <div class="hr"></div>
       <div class="row between"><span class="small strong">Rangement</span>
         <div class="chips">

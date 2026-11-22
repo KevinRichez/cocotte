@@ -26,7 +26,7 @@ const ROWS = [
   ['merguez', 'Merguez', '🌭', 'viande', 'pc', 190, 9, 'frigo', 7, 6, 3.49, { portion: 3, kw: 'merguez' }],
   ['chipolatas', 'Chipolatas', '🌭', 'viande', 'pc', 150, 7, 'frigo', 7, 6, 3.29, { portion: 3, unitLabel: 'chipolata', kw: 'chipolata chipolatas' }],
   ['saucisses_strasbourg', 'Saucisses de Strasbourg', '🌭', 'viande', 'pc', 120, 5.5, 'frigo', 21, 10, 2.39, { portion: 2, unitLabel: 'saucisse', kw: 'strasbourg knack knacks', nat: 'Herta' }],
-  ['jambon', 'Jambon blanc', '🥓', 'viande', 'pc', 45, 8, 'frigo', 7, 4, 1.95, { sizes: [2, 4, 6, 8], portion: 2, unitLabel: 'tranche', kw: 'jambon blanc tranches', nat: 'Herta|Fleury Michon' }],
+  ['jambon', 'Jambon blanc', '🥓', 'viande', 'pc', 45, 8, 'frigo', 7, 4, 1.95, { sizes: [2, 4, 6, 8], portion: 2, unitLabel: 'tranche', kw: 'jambon blanc tranches paris sel reduit', nat: 'Herta|Fleury Michon' }],
   ['jambon_cru', 'Jambon cru', '🥓', 'viande', 'pc', 40, 5, 'frigo', 14, 6, 2.49, { portion: 3, unitLabel: 'tranche', kw: 'jambon cru serrano bayonne' }],
   ['blanc_dinde', 'Blanc de dinde en tranches', '🦃', 'viande', 'pc', 30, 6, 'frigo', 7, 6, 1.89, { portion: 3, unitLabel: 'tranche', kw: 'blanc dinde tranches', nat: 'Herta' }],
   ['bacon', 'Bacon', '🥓', 'viande', 'pc', 30, 3.5, 'frigo', 21, 10, 1.99, { portion: 3, unitLabel: 'tranche', kw: 'bacon' }],
@@ -55,7 +55,7 @@ const ROWS = [
   ['houmous', 'Houmous', '🫓', 'vegetal', 'g', 300, 7, 'frigo', 14, 200, 1.79, { kw: 'houmous hummus' }],
 
   ['oeufs', 'Œufs', '🥚', 'laitier', 'pc', 75, 6.5, 'frigo', 24, 12, 3.49, { sizes: [6, 12, 30], portion: 3, unitLabel: 'œuf', kw: 'oeuf oeufs plein air', nat: 'Matines' }],
-  ['lait', 'Lait demi-écrémé', '🥛', 'laitier', 'ml', 46, 3.2, 'placard', 90, 1000, 0.99, { sizes: [500, 1000, 6000], kw: 'lait demi ecreme uht', nat: 'Lactel' }],
+  ['lait', 'Lait demi-écrémé', '🥛', 'laitier', 'ml', 46, 3.2, 'placard', 90, 1000, 0.99, { sizes: [500, 1000, 6000], kw: 'lait demi ecreme uht hdf haute distinction', nat: 'Lactel' }],
   ['lait_entier', 'Lait entier', '🥛', 'laitier', 'ml', 64, 3.2, 'placard', 90, 1000, 1.15, { kw: 'lait entier', nat: 'Lactel' }],
   ['lait_ecreme', 'Lait écrémé', '🥛', 'laitier', 'ml', 34, 3.3, 'placard', 90, 1000, 0.95, { kw: 'lait ecreme' }],
   ['lait_avoine', "Boisson à l'avoine", '🌾', 'laitier', 'ml', 45, 1, 'placard', 180, 1000, 1.59, { kw: 'boisson avoine vegetale', nat: 'Bjorg' }],

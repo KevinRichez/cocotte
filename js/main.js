@@ -1,5 +1,5 @@
 import { html, render } from './lib/h.js';
-import { useStore, setTab } from './store.js';
+import { useStore, setTab, getState } from './store.js';
 import { Icon, Toasts, ConfirmHost } from './components/ui.js';
 import { WeekView } from './views/WeekView.js';
 import { ShoppingView } from './views/ShoppingView.js';
@@ -23,7 +23,7 @@ function App() {
     shop: s.shoppingList.filter((x) => !x.checked).length,
     profile: s.inventory.filter((x) => { const d = dlcInfo(x.dlc); return d.days >= 0 && d.days <= 2; }).length,
   };
-  const go = (id) => { if (id !== tab.id) { setTab(id); window.scrollTo({ top: 0 }); } };
+  const go = (id) => { if (id !== tab.id) { setTab(id); history.pushState({ tab: id }, ''); window.scrollTo({ top: 0 }); } };
   return html`<div class="app">
     <${tab.View} />
     <${Toasts} />
@@ -42,5 +42,7 @@ if (new URLSearchParams(location.search).has('share')) setTab('shop', { shopTab:
 // Ancien lien de remise à zéro : désactivé, car Android rouvre une app tuée
 // avec son lien d'origine et relançait la remise à zéro.
 if (new URLSearchParams(location.search).has('vider-stock')) history.replaceState(null, '', location.pathname);
+history.replaceState({ tab: getState().ui.tab || 'week' }, '');
+addEventListener('cocotte-back', (e) => { const t = e.detail?.tab; if (t) { setTab(t); window.scrollTo({ top: 0 }); } });
 render(html`<${App} />`, document.getElementById('app'));
 document.documentElement.classList.add('ready');

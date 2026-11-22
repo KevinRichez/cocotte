@@ -2,7 +2,7 @@ import { html, useState, useEffect, useRef, useMemo } from '../lib/h.js';
 import { Icon, Sheet, Chip, useDebounced } from './ui.js';
 import { ING, INGREDIENTS, CATEGORIES, guessIngredient } from '../data/ingredients.js';
 import { STORES, AISLES, storeLabel } from '../data/products.js';
-import { searchProducts, productPrice, euro, userStores, norm, productTitle, productSize, photoFor } from '../lib/engine.js';
+import { searchProducts, productPrice, euro, userStores, norm, productTitle, productSize, photoFor, searchIngredients } from '../lib/engine.js';
 import { searchOnline, lookupBarcode } from '../lib/off.js';
 import { startScan, decodeImage } from '../lib/scanner.js';
 import { saveCustomProduct } from '../actions.js';
@@ -16,6 +16,22 @@ function offToCustom(o) {
     quantity: o.quantity, nutriscore: o.nutriscore, storage: ING[o.ing]?.storage || 'placard',
     aisle: ING[o.ing]?.aisle || 'Divers', emoji: ING[o.ing]?.emoji || '🛒', price: 0, store: null,
   };
+}
+
+// Recherche d'aliment (remplace les longues listes déroulantes)
+export function IngredientSearch({ value, onPick, placeholder = 'Chercher un aliment : tortilla, jambon…', allowNone }) {
+  const [q, setQ] = useState('');
+  const list = norm(q).length >= 2 ? searchIngredients(q, { limit: 12 }) : [];
+  const cur = value && ING[value];
+  return html`<div>
+    ${cur && html`<div class="row" style="gap:8px;margin-bottom:8px"><span class="badge sage">${cur.emoji} ${cur.name}</span>
+      ${allowNone && html`<button type="button" class="btn ghost sm" onClick=${() => onPick(null)}>Retirer</button>`}</div>`}
+    <div class="search"><${Icon} name="search" size=${18} />
+      <input class="field" type="search" autocomplete="off" placeholder=${placeholder} value=${q} onInput=${(e) => setQ(e.currentTarget.value)} /></div>
+    ${list.length > 0 && html`<div class="pick-list" style="margin-top:6px">${list.map((i) => html`<button type="button" class="pick-row" key=${i.id} onClick=${() => { onPick(i.id); setQ(''); }}>
+      <span class="pick-emoji">${i.emoji}</span><span class="pick-main"><span class="pick-name">${i.name}</span><span class="pick-sub">${CATEGORIES[i.cat]?.label} · en ${i.unit === 'pc' ? 'pièces' : i.unit}</span></span></button>`)}</div>`}
+    ${norm(q).length >= 2 && !list.length && html`<div class="subtle xs" style="margin-top:6px">Aucun aliment trouvé.</div>`}
+  </div>`;
 }
 
 const TIER_TONE = { eco: 'eco', bio: 'bio', nat: 'nat', vrac: 'vrac' };

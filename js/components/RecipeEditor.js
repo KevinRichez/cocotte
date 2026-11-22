@@ -3,9 +3,10 @@ import { Sheet, Chip, Icon, Stepper } from './ui.js';
 import { useStore } from '../store.js';
 import { EQUIPMENT, MEALS, MEAL_KEYS, COOKING_EQUIPMENT } from '../data/recipes.js';
 import { ING, fmtQty } from '../data/ingredients.js';
-import { searchIngredients, nutrition, kcalFmt, getProduct, productTitle, cleanName, photoFor } from '../lib/engine.js';
+import { searchIngredients, nutrition, kcalFmt, getProduct, productTitle, cleanName, photoFor, norm } from '../lib/engine.js';
 import { saveRecipe, useProductForIng } from '../actions.js';
-import { ProductSearch } from './ProductSearch.js';
+import { ProductSearch, ScanSheet } from './ProductSearch.js';
+import { saveCustomProduct } from '../actions.js';
 import { toast } from '../lib/toast.js';
 
 const EMOJIS = ['🍝', '🍛', '🥘', '🍲', '🥗', '🍳', '🥩', '🍗', '🍖', '🥓', '🐟', '🍣', '🦐', '🌯', '🌮', '🥙', '🍔', '🍟', '🍕', '🥪', '🌭', '🥟', '🍜', '🍚', '🥔', '🍠', '🥦', '🥕', '🍅', '🫑', '🍄', '🧀', '🥚', '🥣', '🥞', '🧇', '🥐', '🍞', '🥯', '🍰', '🧁', '🍪', '🍫', '🍮', '🍦', '🍌', '🍎', '🍓', '🫐', '🥑', '🥜', '🥛', '☕', '🥤', '🧃', '🌶️', '🫘', '🥥', '🍯', '🔥'];
@@ -24,9 +25,12 @@ export function RecipeEditor({ open, recipe, onClose, onSaved }) {
   const [f, setF] = useState(null);
   const [q, setQ] = useState('');
   const [picking, setPicking] = useState(null); // { index } pour remplacer, { index: -1 } pour ajouter
+  const [pq, setPq] = useState('');
+  const [more, setMore] = useState(false);
+  const [scan, setScan] = useState(false);
   useEffect(() => {
     if (!open) return;
-    setQ(''); setPicking(null);
+    setQ(''); setPicking(null); setPq(''); setMore(false);
     setF(recipe ? { ...recipe, prep: recipe.prep ?? recipe.time, cook: recipe.cook ?? 0, steps: (recipe.steps || []).join('\n'), ingredients: recipe.ingredients.map((x) => ({ ...x })), equipment: recipe.equipment.filter((e) => e !== 'aucun') }
       : { name: '', emoji: '🍲', color: COLORS[0], prep: 10, cook: 10, meals: ['dej', 'diner'], equipment: [], ingredients: [], steps: '' });
   }, [open]);
@@ -47,9 +51,19 @@ export function RecipeEditor({ open, recipe, onClose, onSaved }) {
     const ing = ING[ingId];
     if (k >= 0) set({ ingredients: f.ingredients.map((x, i) => (i === k ? { ing: ingId, qty: x.ing === ingId || ING[x.ing]?.unit === ing.unit ? x.qty : defaultQty(ing), productId } : x)) });
     else set({ ingredients: [...f.ingredients.filter((x) => x.ing !== ingId), { ing: ingId, qty: defaultQty(ing), productId }] });
-    setPicking(null);
+    setPicking(null); setPq(''); setMore(false);
   };
-  const stockRows = [...new Map(s.inventory.map((x) => [x.productId || x.ing || x.id, x])).values()];
+  const pickIng = (ingId) => {
+    const k = picking?.index ?? -1;
+    const ing = ING[ingId];
+    if (k >= 0) set({ ingredients: f.ingredients.map((y, i) => (i === k ? { ing: ingId, qty: ING[y.ing]?.unit === ing.unit ? y.qty : defaultQty(ing) } : y)) });
+    else set({ ingredients: [...f.ingredients.filter((y) => y.ing !== ingId), { ing: ingId, qty: defaultQty(ing) }] });
+    setPicking(null); setPq(''); setMore(false);
+  };
+  const npq = norm(pq);
+  const stockRows = [...new Map(s.inventory.map((x) => [x.productId || x.ing || x.id, x])).values()]
+    .filter((x) => !npq || norm(`${x.name} ${ING[x.ing]?.name || ''}`).includes(npq));
+  const ingRows = npq.length >= 2 ? searchIngredients(pq, { limit: 8 }) : [];
 
   const save = () => {
     const name = f.name.trim().slice(0, 70);
@@ -116,6 +130,11 @@ export function RecipeEditor({ open, recipe, onClose, onSaved }) {
       <span class="pick-emoji">${i.emoji}</span><span class="pick-main"><span class="pick-name">${i.name}</span></span><${Icon} name="plus" size=${16} /></button>`)}</div>`}
 
     <${Sheet} open=${!!picking} onClose=${() => setPicking(null)} title=${picking?.index >= 0 ? `Remplacer : ${ING[f.ingredients[picking.index]?.ing]?.name || ''}` : 'Ajouter un de mes produits'} tall>
+      <div class="row" style="gap:8px;margin-bottom:12px">
+        <div class="search grow"><${Icon} name="search" size=${18} />
+          <input class="field" type="search" autocomplete="off" placeholder="Chercher : pâtes, riz, jambon…" value=${pq} onInput=${(e) => setPq(e.currentTarget.value)} /></div>
+        <button type="button" class="icon-btn lgx" aria-label="Scanner un produit" onClick=${() => setScan(true)}><${Icon} name="barcode" size=${20} /></button>
+      </div>
       ${stockRows.length > 0 && html`<div class="label">Dans tes placards et ton frigo</div>
         <div class="list" style="margin-bottom:14px">${stockRows.map((x) => {
           const p = getProduct(s, x.productId);
@@ -129,8 +148,16 @@ export function RecipeEditor({ open, recipe, onClose, onSaved }) {
               <div class="subtle xs">${x.ing ? ING[x.ing].name : 'Aucun aliment relié'}</div></div>
           </button>`;
         })}</div>`}
-      <div class="label">Ou cherche, scanne un produit</div>
-      ${picking && html`<${ProductSearch} s=${s} onPick=${pickProduct} autoFocus=${false} placeholder="Pâtes, riz, jambon…" />`}
+      ${ingRows.length > 0 && html`<div class="label">Aliments</div>
+        <div class="pick-list" style="margin-bottom:12px">${ingRows.map((i) => html`<button type="button" class="pick-row" key=${i.id} onClick=${() => pickIng(i.id)}>
+          <span class="pick-emoji">${i.emoji}</span><span class="pick-main"><span class="pick-name">${i.name}</span></span><${Icon} name="plus" size=${16} /></button>`)}</div>`}
+      ${npq.length >= 2 && !stockRows.length && !ingRows.length && html`<p class="subtle small">Rien trouvé dans ton stock ni dans les aliments.</p>`}
+      ${!more ? html`<button type="button" class="btn ghost sm" onClick=${() => setMore(true)}><${Icon} name="globe" size=${15} />Chercher un produit de magasin</button>`
+        : html`<${ProductSearch} s=${s} onPick=${pickProduct} autoFocus=${false} placeholder="Pâtes, riz, jambon…" />`}
+      <${ScanSheet} open=${scan} direct onClose=${() => setScan(false)}
+        onFound=${(o) => { setScan(false); const known = o.barcode && s.customProducts.find((p) => p.barcode === o.barcode)?.id;
+          pickProduct(known || saveCustomProduct({ name: o.name, brand: o.brand, barcode: o.barcode, size: o.size, unit: o.unit, ing: o.ing, nutri: o.nutri, image: o.image, storage: ING[o.ing]?.storage || 'placard', aisle: ING[o.ing]?.aisle || 'Divers', emoji: ING[o.ing]?.emoji || '🛒', price: 0, store: null })); }}
+        onUnknown=${() => { setScan(false); toast('Produit inconnu d’Open Food Facts'); }} />
     </${Sheet}>
 
     <label class="label" for="re-steps" style="margin-top:14px">Étapes (une par ligne)</label>
