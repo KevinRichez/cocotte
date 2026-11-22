@@ -19,6 +19,7 @@ export function ShoppingView() {
   const setTabLocal = (v) => update((d) => { d.ui.shopTab = v; });
   const [ticketOpen, setTicketOpen] = useState(false);
   const [sharedFile, setSharedFile] = useState(null);
+  useEffect(() => { if (s.ui.reopenTicket && readDraft()) setTicketOpen(true); }, [s.ui.reopenTicket]);
   useEffect(() => {
     if (!new URLSearchParams(location.search).has('share')) return;
     history.replaceState(null, '', location.pathname);
@@ -390,9 +391,9 @@ function TicketSheet({ open, onClose, s, file }) {
     } catch (e) { setBusy(null); setError(e.message || 'Lecture impossible'); }
   };
   useEffect(() => { if (open && file) readFile(file); }, [open, file]);
-  const apply = () => { applyTicket(parsed.items, dlcs); clearDraft(); close(); };
+  const apply = () => { applyTicket(parsed.items, dlcs, { at: Date.now(), raw, parsed, dlcs }); clearDraft(); close(); };
   const footer = parsed
-    ? html`<div class="row"><button type="button" class="btn ghost" onClick=${() => { clearDraft(); setParsed(null); }}>Retour</button>
+    ? html`<div class="row"><button type="button" class="btn ghost" onClick=${() => setParsed(null)}>Retour</button>
         <button type="button" class="btn primary grow" disabled=${!parsed.items.length} onClick=${apply}><${Icon} name="check" size=${18} />Tout ranger (${parsed.items.filter((x) => !x.ignored).length})</button></div>`
     : html`<button type="button" class="btn primary block lg" disabled=${!raw.trim() || !!busy} onClick=${() => analyse()}><${Icon} name="sparkles" size=${18} />Analyser le ticket</button>`;
 

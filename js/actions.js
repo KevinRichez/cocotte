@@ -217,7 +217,7 @@ export function finishShopping({ keepUnchecked = false, dlcOverrides = {} } = {}
   undoable(prev, `Courses rangées · ${euro(total)}`);
 }
 
-export function applyTicket(items, dlcs = {}) {
+export function applyTicket(items, dlcs = {}, draft = null) {
   const t = today();
   const prev = update((d) => {
     const hItems = [];
@@ -251,7 +251,13 @@ export function applyTicket(items, dlcs = {}) {
     d.shoppingList = d.shoppingList.filter((x) => !x.checked);
     d.lastTicketSync = t;
   });
-  undoable(prev, `Ticket importé · ${items.length} produits rangés`);
+  // Annuler : retire le stock et la course, mais garde tes scans et corrections
+  // et rouvre l'aperçu du ticket tel que tu l'avais laissé.
+  toast(`Ticket importé · ${items.filter((x) => !x.ignored).length} produits rangés`, { action: 'Annuler', duration: 8000, onAction: () => {
+    if (draft) { try { localStorage.setItem('cocotte:ticket-draft', JSON.stringify(draft)); } catch {} }
+    const cur = getState();
+    restore({ ...prev, customProducts: cur.customProducts, brandPrefs: cur.brandPrefs, productOverrides: cur.productOverrides, ui: { ...prev.ui, tab: 'shop', reopenTicket: Date.now() } });
+  } });
 }
 
 export function saveCustomProduct(product) {
