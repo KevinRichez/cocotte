@@ -327,6 +327,37 @@ export function setSlotServings(date, meal, servings) {
 }
 
 // Produits mémorisés (tickets, scans, créations) qui ne sont plus en stock
+// Change l'aliment ou l'unité d'un produit en stock, et retient le choix pour la suite
+export function relinkStockItem(id, { ing, unit }) {
+  update((d) => {
+    const it = d.inventory.find((x) => x.id === id);
+    if (!it) return;
+    const u = ing ? ING[ing].unit : unit;
+    it.ing = ing || null;
+    it.unit = ing ? null : u;
+    const p = it.productId && d.customProducts.find((x) => x.id === it.productId);
+    if (p) {
+      if ((p.unit || ING[p.ing]?.unit) !== u) p.size = null;
+      Object.assign(p, { unit: u, ing: ing || null, edited: true });
+      if (ing) { p.emoji = ING[ing].emoji; p.aisle = ING[ing].aisle; }
+      rememberRef(d, p.id);
+    } else if (it.productId && getProduct(d, it.productId)) {
+      d.productOverrides[it.productId] = { ...(d.productOverrides[it.productId] || {}), ing: ing || null, unit: u, edited: true };
+      rememberRef(d, it.productId);
+    }
+  });
+}
+
+// Recette modifiée avec un de tes produits : il devient la référence de l'aliment
+export function useProductForIng(productId, ing) {
+  update((d) => {
+    const p = d.customProducts.find((x) => x.id === productId);
+    if (p && !p.ing && ing) Object.assign(p, { ing, unit: ING[ing].unit, edited: true });
+    const prod = getProduct(d, productId);
+    if (prod?.ing === ing) d.brandPrefs[ing] = productId;
+  });
+}
+
 export function restockCandidates(s) {
   const inStock = new Set(s.inventory.map((x) => x.productId).filter(Boolean));
   const ids = [...s.customProducts.filter((p) => !p.ignored).map((p) => p.id).reverse(), ...Object.keys(s.productOverrides || {})];

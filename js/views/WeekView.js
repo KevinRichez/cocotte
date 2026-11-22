@@ -1,13 +1,13 @@
 import { html, useState, useMemo } from '../lib/h.js';
 import { useStore } from '../store.js';
-import { Icon, Chip, Badge, Sheet, KcalGauge } from '../components/ui.js';
+import { Icon, Chip, Badge, Sheet, KcalGauge, RecipeThumb, PhotoButton } from '../components/ui.js';
 import { RecipeSheet } from '../components/RecipeSheet.js';
 import { MEALS, MEAL_KEYS } from '../data/recipes.js';
 import { ING } from '../data/ingredients.js';
-import { today, addDays, mondayOf, weekDays, dayShort, dayNum, relDay, dlcInfo } from '../lib/dates.js';
+import { today, addDays, weekStartOf, weekDays, dayShort, dayNum, relDay, dlcInfo } from '../lib/dates.js';
 import {
   suggest, slotKcal, recipeLines, nutrition, kcalFmt, compileNeeds, isSlotPast, OUTSIDE_TAGS, urgentIngs,
-  isBlocked, nextFreeSlot, getRecipe, allRecipes, targets, dayTotals, norm, slotBudget,
+  isBlocked, nextFreeSlot, getRecipe, allRecipes, targets, dayTotals, norm, slotBudget, fmtPortion,
 } from '../lib/engine.js';
 import {
   markEaten, markDayEaten, adjustDayPortions, markOutside, skipSlot, resetSlot, clearSlot, planRecipe, placeDeferred, dropDeferred, generateList, autofillWeek,
@@ -16,7 +16,7 @@ import {
 export function WeekView() {
   const s = useStore();
   const t = today();
-  const [monday, setMonday] = useState(mondayOf(t));
+  const [monday, setMonday] = useState(weekStartOf(t, s.profile.weekStart ?? 6));
   const days = weekDays(monday);
   const [sel, setSel] = useState(t);
   const selected = days.includes(sel) ? sel : days[0];
@@ -27,8 +27,9 @@ export function WeekView() {
   const shiftWeek = (n) => { const m = addDays(monday, n * 7); setMonday(m); setSel(weekDays(m).includes(t) ? t : m); };
   const futureDates = days.filter((d) => d >= t);
   const needs = useMemo(() => compileNeeds(s, futureDates), [s, monday]);
+  const missing = needs.filter((n) => !s.shoppingList.some((x) => !x.checked && x.productId === n.productId));
 
-  return html`<div class="screen has-cta">
+  return html`<div class="screen">
     <header class="topbar">
       <h1 class="h1">Ma semaine</h1>
       <div class="row" style="gap:6px">
@@ -67,12 +68,8 @@ export function WeekView() {
         onPick=${() => setPicker({ date: selected, meal })} />`)}
     </div>
 
-    ${futureDates.length > 0 && html`<div class="floating-cta">
-      <button type="button" class="btn primary block lg" onClick=${() => generateList(futureDates)}>
-        <${Icon} name="cart" size=${19} />Générer ma liste de courses
-        ${needs.length > 0 && html`<span class="badge cta-badge">${needs.length}</span>`}
-      </button>
-    </div>`}
+    ${missing.length > 0 && html`<button type="button" class="btn ghost sm block" style="margin-top:14px" onClick=${() => generateList(futureDates)}>
+      <${Icon} name="cart" size=${15} />${missing.length} produit${missing.length > 1 ? 's' : ''} à acheter pour tes repas · Ajouter à ma liste</button>`}
 
     <${RecipeSheet} recipeId=${recipeOpen?.id} target=${recipeOpen?.target} onClose=${() => setRecipeOpen(null)} />
     <${OutsideSheet} ctx=${outside} s=${s} onClose=${() => setOutside(null)} />
@@ -131,7 +128,7 @@ function Nudges({ s, onOpen }) {
     const slot = nextFreeSlot(s, r);
     items.push(html`<div class="card tint-slate" key=${d.id}>
       <div class="row">
-        <span class="thumb sm" style=${{ background: r.color }}>${r.emoji}</span>
+        <${RecipeThumb} r=${r} cls="thumb sm" />
         <div class="grow">
           <div class="strong small ellipsis">À recaser : ${r.name}</div>
           <div class="subtle">${slot ? `${relDay(slot.date)}, ${MEALS[slot.meal].label.toLowerCase()}` : 'Aucun créneau libre'}</div>
@@ -188,11 +185,11 @@ function SlotCard({ s, date, meal, onOpenRecipe, onOutside, onPick }) {
     const sugg = suggest(s, { meal, date, n: 2 });
     return html`<div class="card slot">${head(html`<button type="button" class="btn soft sm" onClick=${onPick}>Plus d'idées</button>`)}
       ${sugg.map(({ recipe, reasons, kcal, servings }) => html`<button type="button" class="suggest" onClick=${() => planRecipe(date, meal, recipe.id, {}, servings)}>
-        <span class="thumb sm" style=${{ background: recipe.color }}>${recipe.emoji}</span>
+        <${RecipeThumb} r=${recipe} cls="thumb sm" />
         <div class="grow" style="min-width:0">
           <div class="small strong clamp2">${recipe.name}</div>
           <div class="row" style="gap:6px;margin-top:2px">
-            <span class="subtle xs">${recipe.time} min · ${kcalFmt(kcal)} kcal${servings !== 1 ? ` · x${fmtServ(servings)}` : ''}</span>
+            <span class="subtle xs">${recipe.time} min · ${kcalFmt(kcal)} kcal${servings !== 1 ? ` · ${fmtPortion(servings)}` : ''}</span>
             ${reasons.slice(0, 1).map((x) => html`<span class=${`badge ${x.tone} xs`}>${x.label}</span>`)}
           </div>
         </div>
@@ -207,14 +204,14 @@ function SlotCard({ s, date, meal, onOpenRecipe, onOutside, onPick }) {
 
   const k = slotKcal(s, slot);
   const mealRow = r && html`<button type="button" class="meal" onClick=${() => onOpenRecipe(r.id)}>
-    <span class="thumb" style=${{ background: r.color }}>${r.emoji}</span>
+    <${RecipeThumb} r=${r} />
     <div class="grow" style="min-width:0">
       <div class="strong clamp2" style="line-height:1.25">${r.name}</div>
       <div class="meal-meta">
         <span><${Icon} name="clock" size=${13} />${r.time} min</span>
         <span><${Icon} name="flame" size=${13} />${kcalFmt(k.kcal)} kcal</span>
         <span>${Math.round(k.prot)} g prot.</span>
-        ${slot.servings && slot.servings !== 1 && html`<span>x${fmtServ(slot.servings)} portion</span>`}
+        ${slot.servings && slot.servings !== 1 && html`<span>${fmtPortion(slot.servings)}</span>`}
         ${Object.values(slot.swaps || {}).some(Boolean) && html`<span><${Icon} name="swap" size=${12} />adapté</span>`}
       </div>
     </div>
@@ -248,11 +245,12 @@ function SlotCard({ s, date, meal, onOpenRecipe, onOutside, onPick }) {
   if (slot.status === 'eaten') {
     return html`<div class="card slot state-eaten">${head(html`<button type="button" class="btn ghost sm" onClick=${() => resetSlot(date, meal)}>Annuler</button>`)}
       ${mealRow}
-      <div class="status-line"><${Badge} tone="sage"><${Icon} name="check" size=${12} />Mangé</${Badge}></div>
+      <div class="status-line row between"><${Badge} tone="sage"><${Icon} name="check" size=${12} />Mangé</${Badge}><${PhotoButton} recipeId=${r.id} /></div>
     </div>`;
   }
 
   return html`<div class="card slot">${head(html`<div class="row" style="gap:4px">
+      <${PhotoButton} recipeId=${r.id} iconOnly label="Prendre le plat en photo" />
       <button type="button" class="icon-btn sm plain" aria-label="Changer de recette" onClick=${onPick}><${Icon} name="swap" size=${16} /></button>
       <button type="button" class="icon-btn sm plain" aria-label="Libérer le créneau" onClick=${() => clearSlot(date, meal)}><${Icon} name="x" size=${16} /></button>
     </div>`)}
@@ -297,10 +295,10 @@ function PickerSheet({ ctx, s, onClose, onDetails }) {
   const pick = (id, servings = 1) => { planRecipe(ctx.date, ctx.meal, id, {}, servings); setQ(''); onClose(); };
   const row = (r, reasons = [], servings = 1) => html`<div class="suggest" key=${r.id}>
     <button type="button" class="row grow" style="text-align:left;gap:10px;min-width:0" onClick=${() => onDetails(r.id, ctx)}>
-      <span class="thumb sm" style=${{ background: r.color }}>${r.emoji}</span>
+      <${RecipeThumb} r=${r} cls="thumb sm" />
       <div class="grow" style="min-width:0">
         <div class="small strong clamp2">${r.name}</div>
-        <div class="row" style="gap:6px;margin-top:2px"><span class="subtle xs">${r.time} min · ${kcalFmt(nutrition(recipeLines(r, {}, servings), s).kcal)} kcal${servings !== 1 ? ` · x${fmtServ(servings)}` : ''}</span>
+        <div class="row" style="gap:6px;margin-top:2px"><span class="subtle xs">${r.time} min · ${kcalFmt(nutrition(recipeLines(r, {}, servings), s).kcal)} kcal${servings !== 1 ? ` · ${fmtPortion(servings)}` : ''}</span>
           ${reasons.slice(0, 1).map((x) => html`<span class=${`badge ${x.tone} xs`}>${x.label}</span>`)}</div>
       </div>
     </button>

@@ -1,6 +1,6 @@
 import { html, useState, useMemo } from '../lib/h.js';
 import { useStore } from '../store.js';
-import { Icon, Chip, Badge, Empty, Sheet, Seg } from '../components/ui.js';
+import { Icon, Chip, Badge, Empty, Sheet, Seg, RecipeThumb } from '../components/ui.js';
 import { RecipeSheet } from '../components/RecipeSheet.js';
 import { RecipeEditor } from '../components/RecipeEditor.js';
 import { MEALS, MEAL_KEYS } from '../data/recipes.js';
@@ -67,11 +67,10 @@ export function RecipesView() {
 
     <div class="recipe-grid" style="margin-top:10px">
       ${list.map((x) => html`<button type="button" class="rcard" key=${x.r.id} onClick=${() => setOpen(x.r.id)}>
-        <div class="rthumb" style=${{ background: x.r.color }}>
+        <${RecipeThumb} r=${x.r} cls="rthumb">
           ${x.tier ? html`<${Badge} tone=${TIER_META[x.tier].tone}>${TIER_META[x.tier].emoji} ${TIER_META[x.tier].label}</${Badge}>`
             : x.match.ratio === 1 ? html`<${Badge} tone="sage">✓ En stock</${Badge}>` : null}
-          ${x.r.emoji}
-        </div>
+        </${RecipeThumb}>
         <div class="rbody">
           <div class="rname">${x.r.name}</div>
           <div class="meal-meta" style="margin-top:auto;padding-top:4px">

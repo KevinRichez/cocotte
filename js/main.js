@@ -1,6 +1,6 @@
 import { html, render } from './lib/h.js';
 import { useStore, setTab } from './store.js';
-import { Icon, Toasts } from './components/ui.js';
+import { Icon, Toasts, ConfirmHost } from './components/ui.js';
 import { WeekView } from './views/WeekView.js';
 import { ShoppingView } from './views/ShoppingView.js';
 import { RecipesView } from './views/RecipesView.js';
@@ -17,7 +17,7 @@ const TABS = [
 
 function App() {
   const s = useStore();
-  if (!s.profile.onboarded) return html`<div class="app"><${Onboarding} /><${Toasts} /></div>`;
+  if (!s.profile.onboarded) return html`<div class="app"><${Onboarding} /><${Toasts} /><${ConfirmHost} /></div>`;
   const tab = TABS.find((t) => t.id === s.ui.tab) || TABS[0];
   const badge = {
     shop: s.shoppingList.filter((x) => !x.checked).length,
@@ -27,6 +27,7 @@ function App() {
   return html`<div class="app">
     <${tab.View} />
     <${Toasts} />
+    <${ConfirmHost} />
     <nav class="bottom-nav" aria-label="Navigation principale">
       ${TABS.map((t) => html`<button type="button" class=${`nav-btn ${tab.id === t.id ? 'active' : ''}`} onClick=${() => go(t.id)} aria-current=${tab.id === t.id ? 'page' : null}>
         <span class="nav-ico"><${Icon} name=${t.icon} size=${21} stroke=${tab.id === t.id ? 2.3 : 2} /></span>

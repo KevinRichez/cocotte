@@ -8,17 +8,21 @@ import { STORES, storeLabel, packLabel } from '../data/products.js';
 import { EQUIPMENT, COOKING_EQUIPMENT } from '../data/recipes.js';
 import { dlcInfo, fmtShort, addDays, today } from '../lib/dates.js';
 import { kcalFmt, targets, GOAL_LABEL, getProduct, estimateDlc, TIER_META, TIER_KEYS, allRecipes, norm, cleanName, productTitle, productSize } from '../lib/engine.js';
-import { addStock, updateStockItem, removeStockItem, setTier, setProfile, enrichFromScan, resetStockAndHistory, restockCandidates, restockProducts } from '../actions.js';
+import { addStock, updateStockItem, removeStockItem, setTier, setProfile, enrichFromScan, resetStockAndHistory, restockCandidates, restockProducts, relinkStockItem } from '../actions.js';
 import { toast } from '../lib/toast.js';
+import { confirmAction } from '../lib/confirm.js';
 import { PRODUCE_CREDITS } from '../data/produce.js';
 
 export function ProfileView() {
   const s = useStore();
   const tab = s.ui.profileTab || 'stock';
   const [goalOpen, setGoalOpen] = useState(false);
+  const [settings, setSettings] = useState(false);
   const t = targets(s.profile);
   return html`<div class="screen">
-    <header class="topbar"><h1 class="h1">Profil</h1></header>
+    <header class="topbar"><h1 class="h1">Profil</h1>
+      <button type="button" class="icon-btn" aria-label="Paramètres" onClick=${() => setSettings(true)}><${Icon} name="gear" size=${20} /></button></header>
+    <${SettingsSheet} open=${settings} onClose=${() => setSettings(false)} s=${s} />
 
     <button type="button" class="card tint-sage pad-lg tappable goal-card" onClick=${() => setGoalOpen(true)}>
       <div class="row" style="gap:14px">
@@ -62,7 +66,7 @@ function StockTab({ s }) {
 
   return html`<div>
     <button type="button" class="btn primary block lg" style="margin-top:14px" onClick=${() => setAdding(true)}><${Icon} name="plus" size=${19} />Ajouter un produit</button>
-    ${cands.length > 0 && html`<button type="button" class="btn soft block" style="margin-top:10px" onClick=${() => setRestock(true)}><${Icon} name="refresh" size=${17} />Remettre en stock mes produits connus (${cands.length})</button>`}
+    ${cands.length > 0 && s.inventory.length === 0 && html`<button type="button" class="btn soft block" style="margin-top:10px" onClick=${() => setRestock(true)}><${Icon} name="refresh" size=${17} />Remettre en stock mes produits connus (${cands.length})</button>`}
 
     ${soon.length > 0 && html`<div class="card tint-amber" style="margin-top:14px">
       <div class="strong small" style="margin-bottom:8px">À consommer bientôt</div>
@@ -145,15 +149,16 @@ function AddStockSheet({ open, s, onClose }) {
     if (!p) return;
     const ing = ING[p.ing];
     setPid(id);
-    setF({ packs: 1, grams: p.size || (ing?.unit === 'pc' ? 1 : 100), dlc: estimateDlc(st, id, p.ing), location: p.storage || ing?.storage || 'placard' });
+    setF({ packs: 1, grams: p.size || (ing?.unit === 'pc' ? 1 : 100), unit: p.unit || 'pc', dlc: estimateDlc(st, id, p.ing), location: p.storage || ing?.storage || 'placard' });
   };
   const p = pid ? getProduct(s, pid) : null;
   const ing = p && ING[p.ing];
   const hasPack = p && p.size && (ing || p.unit);
-  const qty = !p ? 0 : hasPack ? p.size * f.packs : ing ? f.grams : f.packs;
+  const freeUnit = p && !ing && !hasPack ? f.unit : null;
+  const qty = !p ? 0 : hasPack ? p.size * f.packs : ing ? f.grams : freeUnit && freeUnit !== 'pc' ? f.grams : f.packs;
   const sizeLabel = hasPack ? (ing ? packLabel(ing, p.size) : fmtQty(p.size, p.unit)) : '';
   const save = (next) => {
-    addStock({ productId: p.id, ing: ing ? p.ing : null, name: productTitle(p), qty, unit: !ing && hasPack ? p.unit : null, dlc: f.dlc || null, location: f.location, nutri: p.nutri });
+    addStock({ productId: p.id, ing: ing ? p.ing : null, name: productTitle(p), qty, unit: !ing ? (hasPack ? p.unit : freeUnit) : null, dlc: f.dlc || null, location: f.location, nutri: p.nutri });
     if (next) { setPid(null); setF(null); setSearchKey(searchKey + 1); } else close();
   };
   const set = (patch) => setF({ ...f, ...patch });
@@ -175,8 +180,11 @@ function AddStockSheet({ open, s, onClose }) {
           ${hasPack
             ? html`<${Stepper} value=${f.packs} min=${1} max=${50} onChange=${(v) => set({ packs: v })} format=${(v) => `${v} × ${sizeLabel}`} />`
             : ing ? html`<${Stepper} value=${f.grams} min=${ing.unit === 'pc' ? 1 : 10} step=${ing.unit === 'pc' ? 1 : 50} onChange=${(v) => set({ grams: v })} format=${(v) => fmtQty(v, ing.unit, p.ing)} />`
-            : html`<${Stepper} value=${f.packs} min=${1} max=${50} onChange=${(v) => set({ packs: v })} format=${(v) => `× ${v}`} />`}
+            : freeUnit && freeUnit !== 'pc' ? html`<${Stepper} value=${f.grams} min=${10} step=${freeUnit === 'ml' ? 50 : 50} onChange=${(v) => set({ grams: v })} format=${(v) => fmtQty(v, freeUnit)} />`
+            : html`<${Stepper} value=${f.packs} min=${1} max=${50} onChange=${(v) => set({ packs: v })} format=${(v) => `${v} pièce${v > 1 ? 's' : ''}`} />`}
         </div>
+        ${freeUnit && html`<div class="row between" style="margin-top:10px"><b class="small">Unité</b>
+          <div class="chips">${[['g', 'g'], ['ml', 'ml'], ['pc', 'pièces']].map(([u, l]) => html`<${Chip} sm active=${freeUnit === u} onClick=${() => set({ unit: u, grams: f.grams || 100 })}>${l}</${Chip}>`)}</div></div>`}
         <div class="hr"></div>
         <div class="row between"><b class="small">À consommer avant</b>
           <input type="date" class="field" style="width:170px;height:40px" value=${f.dlc || ''} onInput=${(e) => set({ dlc: e.currentTarget.value || null })} /></div>
@@ -221,6 +229,19 @@ function StockEditSheet({ id, s, onClose }) {
         <${Stepper} value=${x.qty} min=${0} step=${step} format=${(v) => (unit ? fmtQty(v, unit, x.ing) : v)}
           onChange=${(v) => { if (v <= 0) { removeStockItem(x.id); onClose(); } else updateStockItem(x.id, { qty: v }); }} /></div>
       <div class="hr"></div>
+      <div class="row between"><span class="small strong">Unité</span>
+        <div class="chips">${[['g', 'g'], ['ml', 'ml'], ['pc', 'pièces']].map(([u, l]) => html`<${Chip} sm active=${unit === u} onClick=${() => { if (unit !== u) relinkStockItem(x.id, { ing: ing?.unit === u ? x.ing : null, unit: u }); }}>${l}</${Chip}>`)}</div></div>
+      <div class="hr"></div>
+      <label class="small strong" for="st-ing">Compte dans les recettes comme</label>
+      <select id="st-ing" class="field" style="margin-top:6px" value=${x.ing || ''} onChange=${(e) => relinkStockItem(x.id, { ing: e.currentTarget.value || null, unit })}>
+        <option value="">Aucun aliment (pas déduit par les recettes)</option>
+        ${Object.entries(CATEGORIES).map(([k, c]) => {
+          const rows = INGREDIENTS.filter((i) => i.cat === k && (!unit || i.unit === unit || i.id === x.ing));
+          return rows.length > 0 && html`<optgroup label=${c.label}>${rows.map((i) => html`<option value=${i.id}>${i.emoji} ${i.name}</option>`)}</optgroup>`;
+        })}
+      </select>
+      <div class="subtle xs" style="margin-top:6px">Ex : ta pulpe de tomates en g compte comme « Pulpe ou passata de tomate ». Ton choix est retenu pour tes prochains tickets.</div>
+      <div class="hr"></div>
       <div class="row between"><span class="small strong">Rangement</span>
         <div class="chips">
           <${Chip} sm active=${x.location === 'frigo'} onClick=${() => updateStockItem(x.id, { location: 'frigo' })}>🧊 Frigo</${Chip}>
@@ -249,6 +270,7 @@ function PrefsTab({ s }) {
     <div class="meal-tabs" style="margin-top:0">
       ${[['ing', 'Aliments'], ['epice', 'Épices'], ['recipe', 'Recettes']].map(([k, l]) => html`<button type="button" class=${kind === k ? 'on' : ''} onClick=${() => setKind(k)}>${l}</button>`)}
     </div>
+    <button type="button" class="btn soft block" style="margin-top:12px" onClick=${() => setPicking(true)}><${Icon} name="plus" size=${16} />Classer des ${kind === 'recipe' ? 'recettes' : kind === 'epice' ? 'épices' : 'aliments'}</button>
     <div class="stack" style="margin-top:12px">
       ${TIER_KEYS.map((tk) => {
         const ids = Object.keys(map).filter((id) => map[id] === tk && byId[id]);
@@ -258,7 +280,6 @@ function PrefsTab({ s }) {
           <div class="chips">${ids.map((id) => html`<${Chip} sm onClick=${() => setTier(prefKind, id, null)} title="Retirer">${byId[id].emoji} ${byId[id].name}<span class="x"><${Icon} name="x" size=${13} /></span></${Chip}>`)}</div>
         </div>`;
       })}
-      <button type="button" class="btn soft block" onClick=${() => setPicking(true)}><${Icon} name="plus" size=${16} />Classer des ${kind === 'recipe' ? 'recettes' : kind === 'epice' ? 'épices' : 'aliments'}</button>
     </div>
     <${TierListSheet} open=${picking} title=${kind === 'recipe' ? 'Mes recettes' : kind === 'epice' ? 'Mes épices' : 'Mes aliments'} items=${items} map=${map}
       grouped=${kind === 'ing'} onSet=${(id, t) => setTier(prefKind, id, t)} onClose=${() => setPicking(false)} />
@@ -304,6 +325,7 @@ async function importData(e) {
   try {
     const data = migrate(JSON.parse(await f.text()));
     if (!data) throw new Error();
+    if (!(await confirmAction({ title: 'Restaurer ce fichier ?', message: 'Toutes tes données actuelles seront remplacées par celles du fichier.', confirm: 'Restaurer' }))) return;
     const prev = getState();
     replaceState(data);
     toast('Sauvegarde restaurée', { action: 'Annuler', onAction: () => restore(prev) });
@@ -317,7 +339,8 @@ function AutoBackups({ onClose }) {
     const d = new Date(iso);
     return `${d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
   };
-  const back = (b) => {
+  const back = async (b) => {
+    if (!(await confirmAction({ title: 'Restaurer cette sauvegarde ?', message: 'Ton stock, ton historique et tes produits reviennent à cet état. Ta semaine et tes goûts ne bougent pas.', confirm: 'Restaurer' }))) return;
     const prev = getState();
     const next = { ...b.state, plan: prev.plan, prefs: prev.prefs, profile: prev.profile, ui: prev.ui };
     replaceState(next);
@@ -337,14 +360,57 @@ function AutoBackups({ onClose }) {
 
 const ACTIVITY = [[1.2, 'Plutôt assis'], [1.4, 'Un peu actif'], [1.6, 'Actif'], [1.8, 'Très actif']];
 
-function ProfileSheet({ open, onClose, s }) {
-  const p = s.profile;
-  const t = targets(p);
-  const reset = () => {
+const WEEK_DAYS = [[1, 'Lun'], [2, 'Mar'], [3, 'Mer'], [4, 'Jeu'], [5, 'Ven'], [6, 'Sam'], [0, 'Dim']];
+
+function SettingsSheet({ open, onClose, s }) {
+  const [restock, setRestock] = useState(false);
+  const cands = open ? restockCandidates(s) : [];
+  const ws = s.profile.weekStart ?? 6;
+  const reset = async () => {
+    if (!(await confirmAction({ title: 'Refaire l’accueil ?', message: 'Tu repasses par les questions de départ. Tes données sont gardées.', confirm: 'Refaire l’accueil' }))) return;
     const prev = getState();
+    onClose();
     update((d) => { d.profile.onboarded = false; });
     toast('Accueil relancé', { action: 'Annuler', onAction: () => restore(prev) });
   };
+  const wipe = async () => {
+    if (!(await confirmAction({ title: 'Vider placards, frigo et historique ?', message: 'Ton stock et tes courses passées seront effacés. Une sauvegarde automatique est faite juste avant.', confirm: 'Tout vider' }))) return;
+    onClose();
+    resetStockAndHistory();
+  };
+  return html`<${Sheet} open=${open} onClose=${onClose} title="Paramètres"
+    footer=${html`<button type="button" class="btn primary block" onClick=${onClose}>OK</button>`}>
+    <div class="label">Jour des courses (début de ta semaine)</div>
+    <div class="chips">${WEEK_DAYS.map(([d, l]) => html`<${Chip} sm active=${ws === d} onClick=${() => setProfile({ weekStart: d })}>${l}</${Chip}>`)}</div>
+
+    <div class="card flat" style="margin-top:16px">
+      <b class="small">Mes données</b>
+      <div class="subtle xs" style="margin:2px 0 10px">Tout est stocké sur ton téléphone. Les recherches de produits en ligne passent par Open Food Facts.</div>
+      <div class="row wrap" style="gap:8px">
+        <button type="button" class="btn ghost sm" onClick=${exportData}><${Icon} name="upload" size=${15} />Télécharger une sauvegarde</button>
+        <label class="btn ghost sm" style="cursor:pointer"><${Icon} name="refresh" size=${15} />Restaurer un fichier
+          <input type="file" accept="application/json,.json" hidden onChange=${importData} /></label>
+      </div>
+    </div>
+    <${AutoBackups} onClose=${onClose} />
+
+    <div class="card flat" style="margin-top:12px">
+      <b class="small">Stock</b>
+      <div class="row wrap" style="gap:8px;margin-top:10px">
+        ${cands.length > 0 && html`<button type="button" class="btn ghost sm" onClick=${() => setRestock(true)}><${Icon} name="refresh" size=${15} />Remettre en stock mes produits connus (${cands.length})</button>`}
+        <button type="button" class="btn ghost sm" onClick=${wipe}><${Icon} name="trash" size=${15} />Vider placards, frigo et historique</button>
+        <button type="button" class="btn ghost sm" onClick=${reset}><${Icon} name="refresh" size=${15} />Refaire l’accueil</button>
+      </div>
+    </div>
+    <details class="subtle xs" style="margin-top:12px"><summary>Crédits photos des fruits et légumes</summary>
+      <div style="margin-top:6px">${PRODUCE_CREDITS.map((c) => html`<div>${ING[c.ing]?.name} : ${c.author}, ${c.license}, Wikimedia Commons</div>`)}</div></details>
+    <${RestockSheet} open=${restock} cands=${cands} onClose=${() => setRestock(false)} />
+  </${Sheet}>`;
+}
+
+function ProfileSheet({ open, onClose, s }) {
+  const p = s.profile;
+  const t = targets(p);
   return html`<${Sheet} open=${open} onClose=${onClose} title="Mon profil"
     footer=${html`<button type="button" class="btn primary block" onClick=${onClose}>OK</button>`}>
     <div class="ob-result" style="margin-top:0">
@@ -380,18 +446,5 @@ function ProfileSheet({ open, onClose, s }) {
       const on = p.equipment.includes(k);
       return html`<${Chip} sm active=${on} onClick=${() => setProfile({ equipment: on ? p.equipment.filter((x) => x !== k) : [...p.equipment, k] })}>${EQUIPMENT[k].emoji} ${EQUIPMENT[k].label}</${Chip}>`;
     })}</div>
-    <div class="card flat" style="margin-top:16px">
-      <div class="small">Tout est stocké sur ton téléphone. Les recherches de produits en ligne passent par Open Food Facts.</div>
-      <div class="row wrap" style="gap:8px;margin-top:10px">
-        <button type="button" class="btn ghost sm" onClick=${exportData}><${Icon} name="upload" size=${15} />Sauvegarder mes données</button>
-        <label class="btn ghost sm" style="cursor:pointer"><${Icon} name="refresh" size=${15} />Restaurer une sauvegarde
-          <input type="file" accept="application/json,.json" hidden onChange=${importData} /></label>
-        <button type="button" class="btn ghost sm" onClick=${() => { onClose(); reset(); }}><${Icon} name="refresh" size=${15} />Refaire l’accueil</button>
-        <button type="button" class="btn ghost sm" onClick=${() => { onClose(); resetStockAndHistory(); }}><${Icon} name="trash" size=${15} />Vider placards, frigo et historique</button>
-      </div>
-    </div>
-    <${AutoBackups} onClose=${onClose} />
-    <details class="subtle xs" style="margin-top:12px"><summary>Crédits photos des fruits et légumes</summary>
-      <div style="margin-top:6px">${PRODUCE_CREDITS.map((c) => html`<div>${ING[c.ing]?.name} : ${c.author}, ${c.license}, Wikimedia Commons</div>`)}</div></details>
   </${Sheet}>`;
 }

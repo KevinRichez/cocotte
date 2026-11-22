@@ -1,5 +1,5 @@
 import { html, useState, useEffect, useMemo } from '../lib/h.js';
-import { Sheet, Chip, Badge, Icon, Stepper, TierPicker } from './ui.js';
+import { Sheet, Chip, Badge, Icon, Stepper, TierPicker, RecipeThumb, PhotoButton } from './ui.js';
 import { RecipeEditor } from './RecipeEditor.js';
 import { useStore } from '../store.js';
 import { EQUIPMENT, MEALS, MEAL_KEYS } from '../data/recipes.js';
@@ -7,9 +7,10 @@ import { ING, fmtQty } from '../data/ingredients.js';
 import { today, addDays, dayShort, dayNum, relDay } from '../lib/dates.js';
 import {
   recipeLines, nutrition, linesCost, stockQty, swapOptions, budgetLevel, budgetLabel, euro, kcalFmt, nextFreeSlot,
-  getRecipe, recipeTier, ingTier, canCook, slotBudget, servingsFor, refProduct, photoFor, productTitle,
+  getRecipe, recipeTier, ingTier, canCook, slotBudget, servingsFor, refProduct, photoFor, productTitle, fmtPortion, stockSubstitute,
 } from '../lib/engine.js';
 import { planRecipe, addIngsToList, setTier, deleteRecipe } from '../actions.js';
+import { confirmAction } from '../lib/confirm.js';
 
 export function RecipeSheet({ recipeId, onClose, target }) {
   const s = useStore();
@@ -56,7 +57,7 @@ export function RecipeSheet({ recipeId, onClose, target }) {
       </div>`;
 
   return html`<${Sheet} open=${!!recipeId} onClose=${onClose} footer=${footer}>
-    <div class="thumb lg" style=${{ background: r.color }}>${r.emoji}</div>
+    <div style="position:relative"><${RecipeThumb} r=${r} cls="thumb lg" /><span class="photo-fab"><${PhotoButton} recipeId=${r.id} label="Photo" /></span></div>
     <div style="margin:14px 2px 6px">
       <div class="row wrap" style="gap:6px;margin-bottom:8px">
         ${r.custom && html`<${Badge} tone="slate">${r.override ? 'Modifiée par toi' : 'Ma recette'}</${Badge}>`}
@@ -80,9 +81,9 @@ export function RecipeSheet({ recipeId, onClose, target }) {
     </div>
     <div class="chips" style="margin-bottom:6px">${r.equipment.map((e) => html`<span class="badge neutral" style="height:28px">${EQUIPMENT[e]?.emoji} ${EQUIPMENT[e]?.label}</span>`)}</div>
 
-    ${servings !== 1 && html`<div class="card tint-sage small" style="margin-top:4px">Portion adaptée à ton objectif : <b>x${String(servings).replace('.', ',')}</b>, soit ${kcalFmt(per.kcal * servings)} kcal. Modifiable ci-dessous.</div>`}
+    ${servings !== 1 && html`<div class="card tint-sage small" style="margin-top:4px">Pour ton objectif : <b>${fmtPortion(servings)}</b>, soit ${kcalFmt(per.kcal * servings)} kcal pour ce repas. C’est une seule portion, ${servings > 1 ? 'un peu plus grande' : 'un peu plus petite'} que la normale. Modifiable ci-dessous.</div>`}
     <div class="section-title"><div class="h2">Ingrédients</div>
-      <${Stepper} value=${servings} min=${0.5} max=${12} step=${0.5} onChange=${setServings} format=${(v) => `${String(v).replace('.', ',')} portion${v > 1 ? 's' : ''}`} />
+      <${Stepper} value=${servings} min=${0.5} max=${12} step=${0.5} onChange=${setServings} format=${fmtPortion} />
     </div>
     <div class="list">
       ${lines.map((l) => {
@@ -101,7 +102,8 @@ export function RecipeSheet({ recipeId, onClose, target }) {
               <div class="strong small">${ref ? productTitle(ref) : ing.name}${it === 'refuge' ? ' 💙' : it === 'doux' ? ' 🌱' : ''}</div>
               <div class="subtle row" style="gap:6px"><span class=${`dot ${status}`}></span>
                 ${status === 'ok' ? 'En stock' : status === 'part' ? `En partie (${fmtQty(have, ing.unit, l.ing)})` : 'À acheter'}
-                ${l.swapped && html`<span>· remplace ${ING[l.swapped].name.toLowerCase()}</span>`}</div>
+                ${l.swapped && html`<span>· remplace ${ING[l.swapped].name.toLowerCase()}</span>`}
+                ${status !== 'no' && stockSubstitute(s, l.ing, l.qty) && html`<span>· avec ton ${stockSubstitute(s, l.ing, l.qty).toLowerCase()}</span>`}</div>
             </div>
             <span class="small strong num">${ing.staple ? 'un peu' : fmtQty(l.qty, ing.unit, l.ing)}</span>
             ${opts.length > 1 && html`<button type="button" class="icon-btn sm" aria-label="Échanger" onClick=${() => setSwapIdx(swapIdx === l.idx ? null : l.idx)}><${Icon} name="swap" size=${15} /></button>`}
@@ -118,8 +120,8 @@ export function RecipeSheet({ recipeId, onClose, target }) {
     ${r.steps?.length > 0 && html`<div class="section-title"><div class="h2">Étapes</div></div>
     <ol class="steps">${r.steps.map((st) => html`<li><span>${st}</span></li>`)}</ol>`}
 
-    ${r.custom && !r.override && html`<button type="button" class="btn ghost block" style="margin-top:14px" onClick=${() => { deleteRecipe(r.id); onClose(); }}><${Icon} name="trash" size=${16} />Supprimer cette recette</button>`}
-    ${r.override && html`<button type="button" class="btn ghost block" style="margin-top:14px" onClick=${() => deleteRecipe(r.id, { restoreOriginal: true })}><${Icon} name="refresh" size=${16} />Rétablir la recette d’origine</button>`}
+    ${r.custom && !r.override && html`<button type="button" class="btn ghost block" style="margin-top:14px" onClick=${async () => { if (await confirmAction({ title: 'Supprimer cette recette ?', confirm: 'Supprimer' })) { deleteRecipe(r.id); onClose(); } }}><${Icon} name="trash" size=${16} />Supprimer cette recette</button>`}
+    ${r.override && html`<button type="button" class="btn ghost block" style="margin-top:14px" onClick=${async () => { if (await confirmAction({ title: 'Rétablir la recette d’origine ?', message: 'Tes modifications seront perdues.', confirm: 'Rétablir' })) deleteRecipe(r.id, { restoreOriginal: true }); }}><${Icon} name="refresh" size=${16} />Rétablir la recette d’origine</button>`}
     <${RecipeEditor} open=${editing} recipe=${r} onClose=${() => setEditing(false)} />
   </${Sheet}>`;
 }

@@ -5,6 +5,7 @@ export const parse = (s) => { const [y, m, d] = s.split('-').map(Number); return
 export const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
 export const diffDays = (a, b) => Math.round((parse(a) - parse(b)) / 86400000);
 export const mondayOf = (s) => { const d = parse(s); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return iso(d); };
+export const weekStartOf = (s, start = 1) => { const d = parse(s); d.setDate(d.getDate() - ((d.getDay() - start + 7) % 7)); return iso(d); };
 export const weekDays = (monday) => Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
 const DAYS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];

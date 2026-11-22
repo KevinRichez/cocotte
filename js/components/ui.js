@@ -1,6 +1,8 @@
 import { html, useState, useEffect, useRef } from '../lib/h.js';
 import { Icon } from './icons.js';
-import { subscribeToasts, dismiss } from '../lib/toast.js';
+import { subscribeToasts, dismiss, toast } from '../lib/toast.js';
+import { subscribeConfirm, answer } from '../lib/confirm.js';
+import { useRecipePhoto, setPhoto, photoFromFile } from '../lib/photos.js';
 import { TIER_META, TIER_KEYS, kcalFmt } from '../lib/engine.js';
 
 export { Icon };
@@ -145,6 +147,38 @@ export function Toasts() {
       ${t.action && html`<button type="button" onClick=${() => { t.onAction?.(); dismiss(t.id); }}>${t.action}</button>`}
     </div>`)}
   </div>`;
+}
+
+export function ConfirmHost() {
+  const [c, setC] = useState(null);
+  useEffect(() => subscribeConfirm(setC), []);
+  return html`<${Sheet} open=${!!c} onClose=${() => answer(false)} title=${c?.title}
+    footer=${c && html`<div class="row"><button type="button" class="btn ghost grow" onClick=${() => answer(false)}>${c.cancel}</button>
+      <button type="button" class="btn primary grow" onClick=${() => answer(true)}>${c.confirm}</button></div>`}>
+    ${c?.message && html`<p class="muted" style="margin:0 2px 4px">${c.message}</p>`}
+  </${Sheet}>`;
+}
+
+// Vignette de recette : la photo de ton plat si tu en as pris une, sinon l'emoji
+export function RecipeThumb({ r, cls = 'thumb', children }) {
+  const src = useRecipePhoto(r?.id);
+  if (!r) return null;
+  return html`<span class=${`${cls} ${src ? 'has-photo' : ''}`} style=${src ? { backgroundImage: `url("${src}")` } : { background: r.color }}>${children}${src ? '' : r.emoji}</span>`;
+}
+
+export function PhotoButton({ recipeId, label = 'Photo du plat', iconOnly }) {
+  const onFile = async (e) => {
+    const f = e.currentTarget.files?.[0];
+    e.currentTarget.value = '';
+    if (!f) return;
+    try {
+      const ok = setPhoto(recipeId, await photoFromFile(f));
+      toast(ok ? 'Photo du plat enregistrée' : 'Mémoire pleine : photo non enregistrée');
+    } catch { toast('Photo illisible'); }
+  };
+  return html`<label class=${iconOnly ? 'icon-btn sm plain' : 'btn ghost sm'} style="cursor:pointer" aria-label=${label} onClick=${(e) => e.stopPropagation()}>
+    <${Icon} name="camera" size=${iconOnly ? 16 : 15} />${iconOnly ? '' : label}
+    <input type="file" accept="image/*" capture="environment" hidden onChange=${onFile} /></label>`;
 }
 
 export function Empty({ emoji = '🌿', title, children }) {

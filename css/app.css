@@ -125,9 +125,13 @@ h1, h2, h3, h4, p { margin: 0; }
 .quick-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; }
 .qa { display: flex; align-items: center; justify-content: center; gap: 6px; height: 38px; border-radius: 12px; font-size: 12.5px; font-weight: 700; background: var(--surface-2); color: var(--ink-2); transition: transform .12s var(--ease), background .2s; }
 .qa:active { transform: scale(.95); }
-.qa.eat { background: var(--sage-600); color: #fff; }
-.qa.out { background: var(--slate-50); color: var(--slate); }
-.qa.skip { background: var(--lav-50); color: var(--lav); }
+.qa, .qa.eat, .qa.out, .qa.skip { background: var(--surface); color: var(--ink); border: 1.5px solid var(--line); box-shadow: var(--shadow-sm); }
+.qa.eat svg { color: var(--sage-600); }
+.qa.out svg { color: var(--slate); }
+.qa.skip svg { color: var(--lav); }
+.has-photo { background-size: cover !important; background-position: center; background-color: var(--surface-2); }
+.photo-fab { position: absolute; right: 10px; bottom: 10px; }
+.photo-fab .btn { background: rgba(255, 255, 255, .92); }
 
 .floating-cta { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--nav-h) + var(--safe-b) + 12px); width: calc(100% - 32px); max-width: 488px; z-index: 30; animation: fadeUp .35s var(--ease); }
 

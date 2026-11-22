@@ -8,6 +8,15 @@ export const uid = () => (crypto.randomUUID ? crypto.randomUUID().slice(0, 13) :
 export const norm = (x) => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 export const euro = (n) => `${(Math.round(n * 100) / 100).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 export const kcalFmt = (n) => Math.round(n).toLocaleString('fr-FR');
+// x1,25 = une seule portion, 25 % plus grande
+export function fmtPortion(v) {
+  if (v === 1) return '1 portion';
+  if (v === 2) return 'Portion double';
+  if (v === 1.5) return '1 portion et demie';
+  if (v > 1 && v <= 2.5) return `1 portion +${Math.round((v - 1) * 100)} %`;
+  if (v < 1) return `1 portion ${Math.round((v - 1) * 100)} %`.replace('-', 'moins ');
+  return `${String(v).replace('.', ',')} portions`;
+}
 
 export const TIER_META = {
   refuge: { label: 'Refuge', emoji: '💙', tone: 'sky', hint: 'Ceux qui te font du bien, mis en avant.' },
@@ -211,8 +220,32 @@ export function isBlocked(s, recipe, swaps = {}) {
 }
 export const visibleRecipes = (s) => allRecipes(s).filter((r) => !isBlocked(s, r));
 
-export function stockQty(s, ing) {
-  return s.inventory.filter((x) => x.ing === ing && !dlcInfo(x.dlc).past).reduce((n, x) => n + x.qty, 0);
+// Aliments interchangeables dans les recettes (même unité) : ton pain de mie complet
+// compte pour « pain de mie », ton beurre demi-sel pour « beurre doux »...
+const EQUIV_GROUPS = [
+  ['pain_mie', 'pain_complet'], ['jambon', 'jambon_cru', 'blanc_dinde'], ['beurre', 'beurre_demi_sel'],
+  ['riz', 'riz_basmati', 'riz_thai', 'riz_complet'], ['pates', 'pates_completes', 'pates_fraiches'],
+  ['lait', 'lait_entier', 'lait_ecreme'], ['creme', 'creme_30', 'creme_liquide'], ['fromage_blanc', 'fromage_blanc0', 'skyr'],
+  ['steak5', 'steak15', 'steak20'], ['tomates_pelees', 'pulpe_tomate'], ['mozzarella', 'mozza_rapee'], ['emmental', 'mozza_rapee'],
+  ['poisson_blanc', 'cabillaud'], ['pain', 'pain_campagne'], ['yaourt', 'yaourt_grec'], ['chocolat', 'chocolat_noir'],
+  ['oignon', 'echalote'], ['citron', 'citron_vert'], ['poulet', 'emince_poulet_cuit'], ['saumon', 'saumon_cuit'],
+  ['hache_boeuf', 'dinde_hachee'], ['huile', 'huile_olive'], ['wraps', 'pita'], ['curry', 'garam_masala'], ['persil', 'coriandre'],
+];
+const EQUIV = {};
+for (const g of EQUIV_GROUPS) for (const a of g) for (const b of g) {
+  if (a !== b && ING[a] && ING[b] && ING[a].unit === ING[b].unit) (EQUIV[a] ||= new Set()).add(b);
+}
+export const equivOf = (ing) => [...(EQUIV[ing] || [])];
+const liveLots = (s, ing) => s.inventory.filter((x) => x.ing === ing && !dlcInfo(x.dlc).past);
+export function stockQty(s, ing, { exact = false } = {}) {
+  const ids = exact ? [ing] : [ing, ...equivOf(ing)];
+  return ids.reduce((n, id) => n + liveLots(s, id).reduce((m, x) => m + x.qty, 0), 0);
+}
+// Nom de l'aliment équivalent utilisé quand l'aliment exact manque
+export function stockSubstitute(s, ing, qty = 0) {
+  if (stockQty(s, ing, { exact: true }) >= Math.max(qty, 0.01)) return null;
+  const lot = equivOf(ing).flatMap((id) => liveLots(s, id))[0];
+  return lot ? cleanName(lot.name) || ING[lot.ing].name : null;
 }
 export function stockMatch(s, lines) {
   let have = 0; const missing = [];
@@ -241,7 +274,9 @@ export function consumeLines(draft, lines) {
   for (const l of lines) {
     if (ING[l.ing]?.staple) continue;
     let left = l.qty;
-    const lots = draft.inventory.filter((x) => x.ing === l.ing).sort((a, b) => (a.dlc || '9').localeCompare(b.dlc || '9'));
+    const byDlc = (a, b) => (a.dlc || '9').localeCompare(b.dlc || '9');
+    const eq = equivOf(l.ing);
+    const lots = [...draft.inventory.filter((x) => x.ing === l.ing).sort(byDlc), ...draft.inventory.filter((x) => eq.includes(x.ing)).sort(byDlc)];
     for (const lot of lots) {
       if (left <= 0) break;
       const take = Math.min(lot.qty, left);

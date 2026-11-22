@@ -12,6 +12,7 @@ import { parseTicket, SAMPLE_TICKET } from '../lib/ticket.js';
 import { toast } from '../lib/toast.js';
 import { ticketTextFromFile, takeSharedTicket } from '../lib/ticketFile.js';
 import { toggleItem, checkAll, setItemQty, removeItem, addToList, finishShopping, applyTicket, swapItemProduct } from '../actions.js';
+import { confirmAction } from '../lib/confirm.js';
 
 export function ShoppingView() {
   const s = useStore();
@@ -391,7 +392,12 @@ function TicketSheet({ open, onClose, s, file }) {
     } catch (e) { setBusy(null); setError(e.message || 'Lecture impossible'); }
   };
   useEffect(() => { if (open && file) readFile(file); }, [open, file]);
-  const apply = () => { applyTicket(parsed.items, dlcs, { at: Date.now(), raw, parsed, dlcs }); clearDraft(); close(); };
+  const apply = async () => {
+    const n = parsed.items.filter((x) => !x.ignored).length;
+    const ok = await confirmAction({ title: 'Tout ranger ?', message: `${n} produit${n > 1 ? 's' : ''} vont aller dans tes placards et ton frigo, et le ticket sera ajouté à tes dépenses. Tu as fini de tout vérifier ?`, confirm: 'Oui, tout ranger', cancel: 'Pas encore' });
+    if (!ok) return;
+    applyTicket(parsed.items, dlcs, { at: Date.now(), raw, parsed, dlcs }); clearDraft(); close();
+  };
   const footer = parsed
     ? html`<div class="row"><button type="button" class="btn ghost" onClick=${() => setParsed(null)}>Retour</button>
         <button type="button" class="btn primary grow" disabled=${!parsed.items.length} onClick=${apply}><${Icon} name="check" size=${18} />Tout ranger (${parsed.items.filter((x) => !x.ignored).length})</button></div>`

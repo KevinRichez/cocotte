@@ -3,8 +3,9 @@ import { Sheet, Chip, Icon, Stepper } from './ui.js';
 import { useStore } from '../store.js';
 import { EQUIPMENT, MEALS, MEAL_KEYS, COOKING_EQUIPMENT } from '../data/recipes.js';
 import { ING, fmtQty } from '../data/ingredients.js';
-import { searchIngredients, nutrition, kcalFmt } from '../lib/engine.js';
-import { saveRecipe } from '../actions.js';
+import { searchIngredients, nutrition, kcalFmt, getProduct, productTitle, cleanName, photoFor } from '../lib/engine.js';
+import { saveRecipe, useProductForIng } from '../actions.js';
+import { ProductSearch } from './ProductSearch.js';
 import { toast } from '../lib/toast.js';
 
 const EMOJIS = ['🍝', '🍛', '🥘', '🍲', '🥗', '🍳', '🥩', '🍗', '🍖', '🥓', '🐟', '🍣', '🦐', '🌯', '🌮', '🥙', '🍔', '🍟', '🍕', '🥪', '🌭', '🥟', '🍜', '🍚', '🥔', '🍠', '🥦', '🥕', '🍅', '🫑', '🍄', '🧀', '🥚', '🥣', '🥞', '🧇', '🥐', '🍞', '🥯', '🍰', '🧁', '🍪', '🍫', '🍮', '🍦', '🍌', '🍎', '🍓', '🫐', '🥑', '🥜', '🥛', '☕', '🥤', '🧃', '🌶️', '🫘', '🥥', '🍯', '🔥'];
@@ -22,9 +23,10 @@ export function RecipeEditor({ open, recipe, onClose, onSaved }) {
   const s = useStore();
   const [f, setF] = useState(null);
   const [q, setQ] = useState('');
+  const [picking, setPicking] = useState(null); // { index } pour remplacer, { index: -1 } pour ajouter
   useEffect(() => {
     if (!open) return;
-    setQ('');
+    setQ(''); setPicking(null);
     setF(recipe ? { ...recipe, prep: recipe.prep ?? recipe.time, cook: recipe.cook ?? 0, steps: (recipe.steps || []).join('\n'), ingredients: recipe.ingredients.map((x) => ({ ...x })), equipment: recipe.equipment.filter((e) => e !== 'aucun') }
       : { name: '', emoji: '🍲', color: COLORS[0], prep: 10, cook: 10, meals: ['dej', 'diner'], equipment: [], ingredients: [], steps: '' });
   }, [open]);
@@ -35,15 +37,29 @@ export function RecipeEditor({ open, recipe, onClose, onSaved }) {
   const addIng = (ing) => { set({ ingredients: [...f.ingredients, { ing: ing.id, qty: defaultQty(ing) }] }); setQ(''); };
   const setQty = (k, qty) => set({ ingredients: qty <= 0 ? f.ingredients.filter((_, i) => i !== k) : f.ingredients.map((x, i) => (i === k ? { ...x, qty } : x)) });
   const kcal = nutrition(f.ingredients.filter((x) => ING[x.ing])).kcal;
+  // Choix d'un produit (stock, recherche ou scan) pour un ingrédient
+  const pickProduct = (productId) => {
+    const p = getProduct(s, productId);
+    const k = picking?.index ?? -1;
+    const rowIng = k >= 0 ? f.ingredients[k].ing : null;
+    const ingId = p?.ing && ING[p.ing] ? p.ing : rowIng;
+    if (!ingId) { toast('Ce produit n’est relié à aucun aliment : relie-le depuis ton stock'); return; }
+    const ing = ING[ingId];
+    if (k >= 0) set({ ingredients: f.ingredients.map((x, i) => (i === k ? { ing: ingId, qty: x.ing === ingId || ING[x.ing]?.unit === ing.unit ? x.qty : defaultQty(ing), productId } : x)) });
+    else set({ ingredients: [...f.ingredients.filter((x) => x.ing !== ingId), { ing: ingId, qty: defaultQty(ing), productId }] });
+    setPicking(null);
+  };
+  const stockRows = [...new Map(s.inventory.map((x) => [x.productId || x.ing || x.id, x])).values()];
 
   const save = () => {
     const name = f.name.trim().slice(0, 70);
     if (!name) { toast('Donne un nom à ta recette'); return; }
     if (!f.ingredients.length) { toast('Ajoute au moins un ingrédient'); return; }
     if (!f.meals.length) { toast('Choisis au moins un moment'); return; }
+    for (const x of f.ingredients) if (x.productId) useProductForIng(x.productId, x.ing);
     const id = saveRecipe({
       id: recipe?.id, name, emoji: f.emoji || '🍲', color: f.color, prep: Math.round(f.prep), cook: Math.round(f.cook), time: Math.max(1, Math.min(480, Math.round(f.prep + f.cook))),
-      meals: f.meals, equipment: f.equipment.length ? f.equipment : ['aucun'], ingredients: f.ingredients,
+      meals: f.meals, equipment: f.equipment.length ? f.equipment : ['aucun'], ingredients: f.ingredients.map(({ productId, ...x }) => x),
       steps: f.steps.split('\n').map((x) => x.trim().slice(0, 240)).filter(Boolean).slice(0, 20),
     });
     onSaved?.(id);
@@ -83,16 +99,39 @@ export function RecipeEditor({ open, recipe, onClose, onSaved }) {
     ${f.ingredients.length > 0 && html`<div class="list" style="margin-bottom:10px">${f.ingredients.map((x, k) => {
       const ing = ING[x.ing];
       if (!ing) return null;
+      const prod = x.productId && getProduct(s, x.productId);
       return html`<div class="list-item" key=${x.ing}>
-        <span class="thumb sm" style="background:var(--surface-2)">${ing.emoji}</span>
-        <div class="grow small strong" style="min-width:0">${ing.name}</div>
+        ${prod?.image || photoFor(x.ing) ? html`<img class="thumb-img" src=${prod?.image || photoFor(x.ing)} alt="" referrerpolicy="no-referrer" />` : html`<span class="thumb sm" style="background:var(--surface-2)">${ing.emoji}</span>`}
+        <div class="grow small strong" style="min-width:0">${prod ? productTitle(prod) : ing.name}</div>
+        <button type="button" class="icon-btn sm plain" aria-label="Remplacer par un de mes produits" onClick=${() => setPicking({ index: k })}><${Icon} name="swap" size=${15} /></button>
         <${Stepper} value=${x.qty} min=${0} step=${stepFor(ing)} onChange=${(v) => setQty(k, v)} format=${(v) => fmtQty(v, ing.unit, x.ing)} />
       </div>`;
     })}</div>`}
-    <div class="search"><${Icon} name="plus" size=${18} />
-      <input class="field" type="search" placeholder="Ajouter un ingrédient" value=${q} onInput=${(e) => setQ(e.currentTarget.value)} /></div>
+    <div class="row" style="gap:8px">
+      <div class="search grow"><${Icon} name="plus" size=${18} />
+        <input class="field" type="search" placeholder="Ajouter un ingrédient" value=${q} onInput=${(e) => setQ(e.currentTarget.value)} /></div>
+      <button type="button" class="btn outline sm" onClick=${() => setPicking({ index: -1 })}><${Icon} name="box" size=${15} />Mes produits</button>
+    </div>
     ${results.length > 0 && html`<div class="pick-list" style="margin-top:6px">${results.map((i) => html`<button type="button" class="pick-row" onClick=${() => addIng(i)}>
       <span class="pick-emoji">${i.emoji}</span><span class="pick-main"><span class="pick-name">${i.name}</span></span><${Icon} name="plus" size=${16} /></button>`)}</div>`}
+
+    <${Sheet} open=${!!picking} onClose=${() => setPicking(null)} title=${picking?.index >= 0 ? `Remplacer : ${ING[f.ingredients[picking.index]?.ing]?.name || ''}` : 'Ajouter un de mes produits'} tall>
+      ${stockRows.length > 0 && html`<div class="label">Dans tes placards et ton frigo</div>
+        <div class="list" style="margin-bottom:14px">${stockRows.map((x) => {
+          const p = getProduct(s, x.productId);
+          const img = p?.image || photoFor(x.ing);
+          return html`<button type="button" class="list-item" style="width:100%;text-align:left" key=${x.id}
+            onClick=${() => (x.productId ? pickProduct(x.productId) : x.ing ? (picking.index >= 0
+              ? (set({ ingredients: f.ingredients.map((y, i) => (i === picking.index ? { ing: x.ing, qty: ING[y.ing]?.unit === ING[x.ing].unit ? y.qty : defaultQty(ING[x.ing]) } : y)) }), setPicking(null))
+              : (set({ ingredients: [...f.ingredients.filter((y) => y.ing !== x.ing), { ing: x.ing, qty: defaultQty(ING[x.ing]) }] }), setPicking(null))) : toast('Relie d’abord ce produit à un aliment dans ton stock'))}>
+            ${img ? html`<img class="thumb-img" src=${img} alt="" referrerpolicy="no-referrer" />` : html`<span class="thumb sm" style="background:var(--surface-2)">${ING[x.ing]?.emoji || '🛒'}</span>`}
+            <div class="grow" style="min-width:0"><div class="small strong clamp2">${cleanName(x.name)}</div>
+              <div class="subtle xs">${x.ing ? ING[x.ing].name : 'Aucun aliment relié'}</div></div>
+          </button>`;
+        })}</div>`}
+      <div class="label">Ou cherche, scanne un produit</div>
+      ${picking && html`<${ProductSearch} s=${s} onPick=${pickProduct} autoFocus=${false} placeholder="Pâtes, riz, jambon…" />`}
+    </${Sheet}>
 
     <label class="label" for="re-steps" style="margin-top:14px">Étapes (une par ligne)</label>
     <textarea id="re-steps" class="field steps-input" rows="5" maxlength="3000" placeholder=${'Cuire les pâtes.\nDorer le poulet…'} value=${f.steps} onInput=${(e) => set({ steps: e.currentTarget.value })}></textarea>
