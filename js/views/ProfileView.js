@@ -1,5 +1,5 @@
 import { html, useState, useMemo } from '../lib/h.js';
-import { useStore, update, getState, restore, replaceState } from '../store.js';
+import { useStore, update, getState, restore, replaceState, listBackups } from '../store.js';
 import { migrate } from '../data/seed.js';
 import { Icon, Chip, Badge, Seg, Sheet, Swipeable, Stepper, Empty, TierPicker } from '../components/ui.js';
 import { ProductSearch, NutritionTable, Thumb, BrandPill, ScanSheet } from '../components/ProductSearch.js';
@@ -8,7 +8,7 @@ import { STORES, storeLabel, packLabel } from '../data/products.js';
 import { EQUIPMENT, COOKING_EQUIPMENT } from '../data/recipes.js';
 import { dlcInfo, fmtShort, addDays, today } from '../lib/dates.js';
 import { kcalFmt, targets, GOAL_LABEL, getProduct, estimateDlc, TIER_META, TIER_KEYS, allRecipes, norm, cleanName, productTitle, productSize } from '../lib/engine.js';
-import { addStock, updateStockItem, removeStockItem, setTier, setProfile, enrichFromScan, resetStockAndHistory } from '../actions.js';
+import { addStock, updateStockItem, removeStockItem, setTier, setProfile, enrichFromScan, resetStockAndHistory, restockCandidates, restockProducts } from '../actions.js';
 import { toast } from '../lib/toast.js';
 
 export function ProfileView() {
@@ -47,6 +47,8 @@ function StockTab({ s }) {
   const [loc, setLoc] = useState('all');
   const [edit, setEdit] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [restock, setRestock] = useState(false);
+  const cands = restockCandidates(s);
   const inv = [...s.inventory].sort((a, b) => (a.dlc || '9999').localeCompare(b.dlc || '9999'));
   const soon = inv.filter((x) => { const d = dlcInfo(x.dlc); return d.days <= 2; });
   const shown = inv.filter((x) => loc === 'all' || x.location === loc);
@@ -59,6 +61,7 @@ function StockTab({ s }) {
 
   return html`<div>
     <button type="button" class="btn primary block lg" style="margin-top:14px" onClick=${() => setAdding(true)}><${Icon} name="plus" size=${19} />Ajouter un produit</button>
+    ${cands.length > 0 && html`<button type="button" class="btn soft block" style="margin-top:10px" onClick=${() => setRestock(true)}><${Icon} name="refresh" size=${17} />Remettre en stock mes produits connus (${cands.length})</button>`}
 
     ${soon.length > 0 && html`<div class="card tint-amber" style="margin-top:14px">
       <div class="strong small" style="margin-bottom:8px">À consommer bientôt</div>
@@ -78,6 +81,7 @@ function StockTab({ s }) {
 
     <${StockEditSheet} id=${edit} s=${s} onClose=${() => setEdit(null)} />
     <${AddStockSheet} open=${adding} s=${s} onClose=${() => setAdding(false)} />
+    <${RestockSheet} open=${restock} cands=${cands} onClose=${() => setRestock(false)} />
   </div>`;
 }
 
@@ -104,6 +108,27 @@ function StockRow({ s, x, onEdit }) {
       ${x.dlc && html`<${Badge} tone=${d.tone}>${d.past ? 'À vérifier' : d.label}</${Badge}>`}
     </div>
   </${Swipeable}>`;
+}
+
+function RestockSheet({ open, cands, onClose }) {
+  const [off, setOff] = useState({});
+  const ids = cands.filter((p) => !off[p.id]).map((p) => p.id);
+  const toggle = (id) => setOff({ ...off, [id]: !off[id] });
+  const go = () => { restockProducts(ids); setOff({}); onClose(); };
+  return html`<${Sheet} open=${open} onClose=${onClose} title="Remettre en stock" tall
+    footer=${html`<button type="button" class="btn primary block lg" disabled=${!ids.length} onClick=${go}><${Icon} name="check" size=${18} />Ranger ${ids.length} produit${ids.length > 1 ? 's' : ''}</button>`}>
+    <p class="subtle" style="margin:0 2px 10px">Tes produits déjà scannés ou importés, avec leur photo, leur nom et leur grammage. Décoche ceux que tu n’as plus. Les dates sont estimées, tu peux les ajuster ensuite.</p>
+    <div class="row" style="gap:8px;margin-bottom:8px">
+      <button type="button" class="btn ghost sm" onClick=${() => setOff({})}>Tout cocher</button>
+      <button type="button" class="btn ghost sm" onClick=${() => setOff(Object.fromEntries(cands.map((p) => [p.id, true])))}>Tout décocher</button>
+    </div>
+    <div class="list">${cands.map((p) => html`<label class="list-item" key=${p.id} style="cursor:pointer">
+      <input type="checkbox" checked=${!off[p.id]} onChange=${() => toggle(p.id)} style="width:20px;height:20px;accent-color:var(--primary, #1F4D3A)" />
+      ${p.image ? html`<img class="pick-img" src=${p.image} alt="" loading="lazy" referrerpolicy="no-referrer" />` : html`<span class="thumb sm" style="background:var(--surface-2)">${p.emoji || ING[p.ing]?.emoji || '🛒'}</span>`}
+      <div class="grow" style="min-width:0"><div class="small strong clamp2">${productTitle(p)}</div>
+        <div class="subtle xs">${[productSize(p), (p.storage || ING[p.ing]?.storage) === 'frigo' ? 'Frigo' : 'Placard'].filter(Boolean).join(' · ')}</div></div>
+    </label>`)}</div>
+  </${Sheet}>`;
 }
 
 function AddStockSheet({ open, s, onClose }) {
@@ -278,6 +303,31 @@ async function importData(e) {
   } catch { toast('Ce fichier n’est pas une sauvegarde Cocotte'); }
 }
 
+function AutoBackups({ onClose }) {
+  const list = listBackups();
+  if (!list.length) return null;
+  const when = (iso) => {
+    const d = new Date(iso);
+    return `${d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+  };
+  const back = (b) => {
+    const prev = getState();
+    const next = { ...b.state, plan: prev.plan, prefs: prev.prefs, profile: prev.profile, ui: prev.ui };
+    replaceState(next);
+    onClose();
+    toast('Stock et historique restaurés', { action: 'Annuler', onAction: () => restore(prev), duration: 8000 });
+  };
+  return html`<div class="card flat" style="margin-top:12px">
+    <b class="small">Sauvegardes automatiques</b>
+    <div class="subtle xs" style="margin:2px 0 8px">Prises chaque jour et avant chaque remise à zéro. Restaurer remet le stock, l’historique et les produits, sans toucher à ta semaine ni à tes goûts.</div>
+    <div class="list">${list.map((b) => html`<div class="list-item" key=${b.at}>
+      <div class="grow" style="min-width:0"><div class="small strong">${when(b.at)}</div>
+        <div class="subtle xs">${b.stock} produit${b.stock > 1 ? 's' : ''} en stock · ${b.tickets} course${b.tickets > 1 ? 's' : ''}</div></div>
+      <button type="button" class="btn soft sm" onClick=${() => back(b)}>Restaurer</button>
+    </div>`)}</div>
+  </div>`;
+}
+
 const ACTIVITY = [[1.2, 'Plutôt assis'], [1.4, 'Un peu actif'], [1.6, 'Actif'], [1.8, 'Très actif']];
 
 function ProfileSheet({ open, onClose, s }) {
@@ -333,5 +383,6 @@ function ProfileSheet({ open, onClose, s }) {
         <button type="button" class="btn ghost sm" onClick=${() => { onClose(); resetStockAndHistory(); }}><${Icon} name="trash" size=${15} />Vider placards, frigo et historique</button>
       </div>
     </div>
+    <${AutoBackups} onClose=${onClose} />
   </${Sheet}>`;
 }

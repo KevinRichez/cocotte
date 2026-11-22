@@ -27,15 +27,53 @@ function load() {
   } catch { return null; }
 }
 
+// Sauvegardes automatiques : 4 instantanés max, pris une fois par jour
+// et avant toute action qui retire beaucoup de stock ou d'historique.
+const BACKUP_KEY = 'cocotte:backups';
+const BACKUP_MAX = 4;
+export function listBackups() {
+  try { const b = JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]'); return Array.isArray(b) ? b.filter((x) => isObj(x) && isObj(x.state)) : []; } catch { return []; }
+}
+const hasContent = (s) => s && (s.inventory?.length || s.history?.length);
+export function backupNow(s = state, reason = 'auto') {
+  if (!hasContent(s)) return;
+  let list = listBackups();
+  list.unshift({ at: new Date().toISOString(), reason, stock: s.inventory.length, tickets: s.history.length, state: s });
+  list = list.slice(0, BACKUP_MAX);
+  while (list.length) {
+    try { localStorage.setItem(BACKUP_KEY, JSON.stringify(list)); return; } catch { list.pop(); }
+  }
+}
+function dailyBackup() {
+  const last = listBackups()[0];
+  if (!last || Date.now() - Date.parse(last.at) > 20 * 3600e3) backupNow(state, 'jour');
+}
+function guard(prev, next) {
+  const lost = (prev.inventory?.length || 0) - (next.inventory?.length || 0);
+  const lostH = (prev.history?.length || 0) - (next.history?.length || 0);
+  if (lost >= 3 || lostH >= 1) backupNow(prev, 'avant');
+}
+
 let saveTimer = null;
+let warned = false;
+function write() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch {
+    if (!warned) { warned = true; import('./lib/toast.js').then((t) => t.toast('Mémoire du téléphone pleine : tes derniers changements ne sont pas enregistrés')); }
+  }
+}
 function save() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} }, 120);
+  saveTimer = setTimeout(write, 120);
 }
-addEventListener('pagehide', () => { clearTimeout(saveTimer); try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} });
+const flush = () => { clearTimeout(saveTimer); write(); };
+addEventListener('pagehide', flush);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+navigator.storage?.persist?.().catch(() => {});
 
 let state = load() || emptyState();
 save();
+dailyBackup();
 
 export const getState = () => state;
 
@@ -44,11 +82,13 @@ export function update(mutator) {
   const draft = structuredClone(state);
   const res = mutator(draft);
   state = res || draft;
+  guard(prev, state);
   save();
   listeners.forEach((l) => l(state));
   return prev;
 }
 export function restore(snapshot) {
+  guard(state, snapshot);
   state = snapshot; save(); listeners.forEach((l) => l(state));
 }
 export function replaceState(next) { restore(sanitize(next)); }

@@ -304,6 +304,31 @@ export function setSlotServings(date, meal, servings) {
   });
 }
 
+// Produits mémorisés (tickets, scans, créations) qui ne sont plus en stock
+export function restockCandidates(s) {
+  const inStock = new Set(s.inventory.map((x) => x.productId).filter(Boolean));
+  const ids = [...s.customProducts.filter((p) => !p.ignored).map((p) => p.id).reverse(), ...Object.keys(s.productOverrides || {})];
+  return [...new Set(ids)].filter((id) => !inStock.has(id)).map((id) => getProduct(s, id)).filter(Boolean);
+}
+
+export function restockProducts(ids) {
+  const prev = update((d) => {
+    for (const id of ids) {
+      const p = getProduct(d, id);
+      if (!p) continue;
+      const ing = p.ing && ING[p.ing] ? p.ing : null;
+      const linked = ing && (!p.size || ING[ing].unit === p.unit) ? ing : null;
+      const n = p.packCount || 1;
+      addToInventory(d, {
+        ing: linked, productId: p.id, name: p.name,
+        qty: p.size ? p.size * n : n, unit: linked ? null : (p.size ? p.unit : null),
+        dlc: estimateDlc(d, p.id, ing), location: p.storage || ING[ing]?.storage || 'placard', nutri: p.nutri || undefined,
+      });
+    }
+  });
+  undoable(prev, `${ids.length} produit${ids.length > 1 ? 's' : ''} remis en stock`);
+}
+
 export function resetStockAndHistory() {
   const prev = update((d) => {
     d.inventory = [];

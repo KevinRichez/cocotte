@@ -38,9 +38,8 @@ function App() {
 }
 
 if (new URLSearchParams(location.search).has('share')) setTab('shop', { shopTab: 'list' });
-if (new URLSearchParams(location.search).has('vider-stock')) {
-  history.replaceState(null, '', location.pathname);
-  import('./actions.js').then((a) => a.resetStockAndHistory());
-}
+// Ancien lien de remise à zéro : désactivé, car Android rouvre une app tuée
+// avec son lien d'origine et relançait la remise à zéro.
+if (new URLSearchParams(location.search).has('vider-stock')) history.replaceState(null, '', location.pathname);
 render(html`<${App} />`, document.getElementById('app'));
 document.documentElement.classList.add('ready');

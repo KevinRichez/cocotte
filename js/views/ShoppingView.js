@@ -29,6 +29,9 @@ export function ShoppingView() {
       <h1 class="h1">Courses</h1>
       <button type="button" class="btn outline sm" onClick=${() => setTicketOpen(true)}><${Icon} name="receipt" size=${16} />Importer un ticket</button>
     </header>
+    ${!ticketOpen && readDraft() && html`<button type="button" class="card tint-sage row" style="width:100%;gap:10px;margin-bottom:12px;text-align:left" onClick=${() => setTicketOpen(true)}>
+      <span style="font-size:22px">🧾</span><span class="grow small"><b>Ticket en cours d’import</b><br /><span class="subtle xs">Tes corrections sont gardées. Touche pour reprendre.</span></span>
+      <${Icon} name="chevR" size=${16} /></button>`}
     <${Seg} value=${tab} onChange=${setTabLocal} options=${[
       { value: 'list', label: `Ma liste${s.shoppingList.length ? ` (${s.shoppingList.length})` : ''}` },
       { value: 'catalog', label: 'Produits' },
@@ -349,12 +352,24 @@ function TicketItem({ it, dlc, open, onToggle, onDlc, onChange, onIgnore }) {
   </div>`;
 }
 
+const DRAFT_KEY = 'cocotte:ticket-draft';
+export function readDraft() {
+  try { const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); return d && Array.isArray(d.parsed?.items) ? d : null; } catch { return null; }
+}
+const clearDraft = () => { try { localStorage.removeItem(DRAFT_KEY); } catch {} };
+
 function TicketSheet({ open, onClose, s, file }) {
+  const draft0 = useMemo(() => (file ? null : readDraft()), [open]);
   const [raw, setRaw] = useState('');
   const [parsed, setParsed] = useState(null);
   const [dlcs, setDlcs] = useState({});
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
+  useEffect(() => { if (open && draft0 && !parsed) { setRaw(draft0.raw || ''); setParsed(draft0.parsed); setDlcs(draft0.dlcs || {}); } }, [open]);
+  useEffect(() => {
+    if (!parsed) return;
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ at: Date.now(), raw, parsed, dlcs })); } catch {}
+  }, [parsed, dlcs]);
   const close = () => { setRaw(''); setParsed(null); setDlcs({}); setBusy(null); setError(null); onClose(); };
   const [editing, setEditing] = useState(null);
   const analyse = (text = raw) => {
@@ -366,7 +381,7 @@ function TicketSheet({ open, onClose, s, file }) {
   };
   const readFile = async (f) => {
     if (!f) return;
-    setError(null); setParsed(null); setBusy('Ouverture du ticket…');
+    setError(null); setParsed(null); clearDraft(); setBusy('Ouverture du ticket…');
     try {
       const text = await ticketTextFromFile(f, setBusy);
       setRaw(text);
@@ -375,9 +390,9 @@ function TicketSheet({ open, onClose, s, file }) {
     } catch (e) { setBusy(null); setError(e.message || 'Lecture impossible'); }
   };
   useEffect(() => { if (open && file) readFile(file); }, [open, file]);
-  const apply = () => { applyTicket(parsed.items, dlcs); close(); };
+  const apply = () => { applyTicket(parsed.items, dlcs); clearDraft(); close(); };
   const footer = parsed
-    ? html`<div class="row"><button type="button" class="btn ghost" onClick=${() => setParsed(null)}>Retour</button>
+    ? html`<div class="row"><button type="button" class="btn ghost" onClick=${() => { clearDraft(); setParsed(null); }}>Retour</button>
         <button type="button" class="btn primary grow" disabled=${!parsed.items.length} onClick=${apply}><${Icon} name="check" size=${18} />Tout ranger (${parsed.items.filter((x) => !x.ignored).length})</button></div>`
     : html`<button type="button" class="btn primary block lg" disabled=${!raw.trim() || !!busy} onClick=${() => analyse()}><${Icon} name="sparkles" size=${18} />Analyser le ticket</button>`;
 
