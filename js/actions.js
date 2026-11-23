@@ -1,7 +1,7 @@
 import { update, restore, getState, backupNow } from './store.js';
 import { toast } from './lib/toast.js';
 import { MEALS, MEAL_KEYS, RECIPE } from './data/recipes.js';
-import { ING, guessIngredient } from './data/ingredients.js';
+import { ING, guessIngredient, matchIngredientText } from './data/ingredients.js';
 import { today, relDay } from './lib/dates.js';
 import {
   uid, recipeLines, consumeLines, restoreTaken, nextMainSlot, batchIngOf, equivOf, autoSwaps, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
@@ -321,10 +321,10 @@ export function deleteRecipe(id, { restoreOriginal } = {}) {
   undoable(prev, restoreOriginal ? 'Recette d’origine rétablie' : 'Recette supprimée');
 }
 // Cuisiner en double : le même plat au créneau suivant (soir puis midi du lendemain)
-export function planLeftover(date, meal) {
+export function planLeftover(date, meal, to = null) {
   const s = getState();
   const slot = s.plan[date]?.[meal];
-  const next = nextMainSlot(date, meal);
+  const next = to || nextMainSlot(date, meal);
   if (!slot?.recipeId || !next) return;
   const prev = update((d) => {
     d.plan[next.date] = d.plan[next.date] || {};
@@ -458,6 +458,30 @@ export function deleteProduct(productId) {
     for (const lot of d.inventory) if (lot.productId === productId) lot.productId = null;
   });
   undoable(prev, 'Fiche produit supprimée');
+}
+
+// Correction unique : produits reliés par l'ancien moteur (ex : pâte à tartiner -> pâtes) et jamais corrigés par toi
+export function relinkLegacy() {
+  const s = getState();
+  if (s.flags?.relinkV2) return;
+  const fixes = [];
+  for (const p of s.customProducts) {
+    if (p.edited || p.ignored || !p.ing) continue;
+    const m = matchIngredientText(`${p.offName || ''} ${p.name || ''}`);
+    if (m && m !== p.ing && ING[m].unit === ING[p.ing].unit) fixes.push([p.id, m]);
+  }
+  if (fixes.length) backupNow(s, 'avant');
+  const prev = update((d) => {
+    d.flags = { ...(d.flags || {}), relinkV2: true };
+    for (const [id, ing] of fixes) {
+      const p = d.customProducts.find((x) => x.id === id);
+      const old = p.ing;
+      Object.assign(p, { ing, emoji: ING[ing].emoji, aisle: ING[ing].aisle });
+      for (const lot of d.inventory) if (lot.productId === id && lot.ing === old) lot.ing = ing;
+      if (d.brandPrefs[old] === id) delete d.brandPrefs[old];
+    }
+  });
+  if (fixes.length) toast(`${fixes.length} produit${fixes.length > 1 ? 's' : ''} mieux reconnu${fixes.length > 1 ? 's' : ''} (ex : pâte à tartiner)`, { action: 'Annuler', onAction: () => restore(prev), duration: 8000 });
 }
 
 export function restockCandidates(s) {

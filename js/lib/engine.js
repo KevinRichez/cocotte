@@ -1,4 +1,4 @@
-import { ING, INGREDIENTS, SWAP_GROUPS } from '../data/ingredients.js';
+import { ING, INGREDIENTS, SWAP_GROUPS, matchIngredientText } from '../data/ingredients.js';
 import { bank, bankProduct, bankForIng, STORES, TIERS } from '../data/products.js';
 import { RECIPES, RECIPE, MEAL_KEYS } from '../data/recipes.js';
 import { PRODUCE_PHOTOS } from '../data/produce.js';
@@ -329,11 +329,10 @@ export function restoreTaken(draft, taken = []) {
   }
 }
 // Produits en stock qui ressemblent à l'aliment mais n'y sont pas reliés
+// (même moteur que les tickets : « pâte à tartiner » n'est jamais proposée pour « pâtes »)
 export function linkCandidates(s, ing) {
   const eq = new Set([ing, ...equivOf(ing)]);
-  const words = norm(ING[ing].name).split(/[^a-z]+/).filter((w) => w.length > 3).map((w) => w.replace(/s$/, ''));
-  if (!words.length) return [];
-  return s.inventory.filter((x) => !eq.has(x.ing) && !dlcInfo(x.dlc).past && norm(x.name).includes(words[0]));
+  return s.inventory.filter((x) => !eq.has(x.ing) && !dlcInfo(x.dlc).past && eq.has(matchIngredientText(x.name)));
 }
 export const pastStock = (s, ing) => s.inventory.filter((x) => (x.ing === ing || equivOf(ing).includes(x.ing)) && dlcInfo(x.dlc).past);
 

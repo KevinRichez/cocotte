@@ -55,9 +55,10 @@ export function RecipeSheet({ recipeId, onClose, target, slot: slotCtx }) {
         <div class="row"><button type="button" class="btn ghost" onClick=${() => setPicking(false)}>Retour</button>
           <button type="button" class="btn primary grow" disabled=${!pick} onClick=${confirm}><${Icon} name="check" size=${18} />Valider</button></div>
       </div>`
-    : plannedHere ? html`<div class="row">
-        ${nextSlot && html`<button type="button" class="btn ghost" onClick=${() => { planLeftover(plannedHere.date, plannedHere.meal); onClose(); }}><${Icon} name="refresh" size=${16} />En double : ${plannedHere.meal === 'diner' ? 'demain midi' : 'ce soir'}</button>`}
-        <button type="button" class="btn primary grow lg" onClick=${onClose}><${Icon} name="check" size=${18} />OK</button>
+    : plannedHere ? html`<div class="stack" style="gap:8px">
+        ${plannedHere.meal === 'dej' && html`<button type="button" class="btn ghost block" onClick=${() => { planLeftover(plannedHere.date, 'dej', { date: plannedHere.date, meal: 'diner' }); onClose(); }}><${Icon} name="refresh" size=${16} />En double : ce soir</button>`}
+        ${(plannedHere.meal === 'dej' || plannedHere.meal === 'diner') && html`<button type="button" class="btn ghost block" onClick=${() => { planLeftover(plannedHere.date, plannedHere.meal, { date: addDays(plannedHere.date, 1), meal: 'dej' }); onClose(); }}><${Icon} name="refresh" size=${16} />En double : demain midi</button>`}
+        <button type="button" class="btn primary block lg" onClick=${onClose}><${Icon} name="check" size=${18} />OK</button>
       </div>`
     : html`<div class="row">
         ${missing.length > 0 && html`<button type="button" class="btn ghost" onClick=${() => addIngsToList(missing)} aria-label="Ajouter les manquants à la liste"><${Icon} name="cart" size=${18} />${missing.length}</button>`}
