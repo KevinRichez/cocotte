@@ -58,6 +58,7 @@ export function RecipeSheet({ recipeId, onClose, target, slot: slotCtx }) {
     : plannedHere ? html`<div class="stack" style="gap:8px">
         ${plannedHere.meal === 'dej' && html`<button type="button" class="btn ghost block" onClick=${() => { planLeftover(plannedHere.date, 'dej', { date: plannedHere.date, meal: 'diner' }); onClose(); }}><${Icon} name="refresh" size=${16} />En double : ce soir</button>`}
         ${(plannedHere.meal === 'dej' || plannedHere.meal === 'diner') && html`<button type="button" class="btn ghost block" onClick=${() => { planLeftover(plannedHere.date, plannedHere.meal, { date: addDays(plannedHere.date, 1), meal: 'dej' }); onClose(); }}><${Icon} name="refresh" size=${16} />En double : demain midi</button>`}
+        ${(plannedHere.meal === 'dej' || plannedHere.meal === 'diner') && html`<button type="button" class="btn ghost block" onClick=${() => { planLeftover(plannedHere.date, plannedHere.meal, { date: addDays(plannedHere.date, 1), meal: 'diner' }); onClose(); }}><${Icon} name="refresh" size=${16} />En double : demain soir</button>`}
         <button type="button" class="btn primary block lg" onClick=${onClose}><${Icon} name="check" size=${18} />OK</button>
       </div>`
     : html`<div class="row">
