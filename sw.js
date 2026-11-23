@@ -1,4 +1,4 @@
-const VERSION = 'cocotte-v23';
+const VERSION = 'cocotte-v24';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css', 'css/fonts.css', 'fonts/jakarta.woff2', 'fonts/bricolage.woff2',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png',
@@ -6,7 +6,7 @@ const SHELL = [
   'js/boot.js', 'js/main.js', 'js/store.js', 'js/actions.js',
   'js/lib/h.js', 'js/lib/confirm.js', 'js/lib/photos.js', 'js/lib/dates.js', 'js/lib/engine.js', 'js/lib/ticket.js', 'js/lib/toast.js', 'js/lib/off.js', 'js/lib/scanner.js', 'js/lib/ticketFile.js',
   'js/data/ingredients.js', 'js/data/products.js', 'js/data/recipes.js', 'js/data/seed.js', 'js/data/produce.js',
-  'js/components/ui.js', 'js/components/icons.js', 'js/components/RecipeSheet.js', 'js/components/RecipeEditor.js', 'js/components/ProductSearch.js',
+  'js/components/ui.js', 'js/components/icons.js', 'js/components/RecipeSheet.js', 'js/components/RecipeEditor.js', 'js/components/RecipeImport.js', 'js/lib/recipeImport.js', 'js/components/ProductSearch.js',
   'js/views/WeekView.js', 'js/views/ShoppingView.js', 'js/views/RecipesView.js', 'js/views/ProfileView.js', 'js/views/Onboarding.js',
 ];
 

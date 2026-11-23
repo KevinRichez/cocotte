@@ -16,7 +16,7 @@ function sanitize(s) {
   out.prefs = { ing: isObj(s.prefs?.ing) ? s.prefs.ing : {}, recipe: isObj(s.prefs?.recipe) ? s.prefs.recipe : {} };
   for (const k of ['inventory', 'deferred', 'shoppingList', 'history', 'customProducts', 'customRecipes']) out[k] = arr(s[k]).filter(isObj);
   out.inventory = out.inventory.filter((x) => typeof x.qty === 'number' && x.qty > 0);
-  for (const k of ['plan', 'priceOverrides', 'brandPrefs', 'productOverrides']) out[k] = isObj(s[k]) ? s[k] : {};
+  for (const k of ['plan', 'priceOverrides', 'brandPrefs', 'productOverrides', 'extras']) out[k] = isObj(s[k]) ? s[k] : {};
   return out;
 }
 

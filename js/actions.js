@@ -2,9 +2,9 @@ import { update, restore, getState, backupNow } from './store.js';
 import { toast } from './lib/toast.js';
 import { MEALS, MEAL_KEYS, RECIPE } from './data/recipes.js';
 import { ING, guessIngredient, matchIngredientText } from './data/ingredients.js';
-import { today, relDay } from './lib/dates.js';
+import { today, relDay, addDays } from './lib/dates.js';
 import {
-  uid, recipeLines, consumeLines, restoreTaken, nextMainSlot, batchIngOf, equivOf, autoSwaps, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
+  uid, recipeLines, consumeLines, restoreTaken, nextMainSlot, batchIngOf, equivOf, autoSwaps, slotLines, batchOver, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
   listItemInfo, listTotal, euro, getProduct, getRecipe, defaultProductFor, slotKcal, isSlotPast,
 } from './lib/engine.js';
 
@@ -21,12 +21,42 @@ export function planRecipe(date, meal, recipeId, swaps = {}, servings = 1) {
   undoable(prev, `${getRecipe(getState(), recipeId)?.name}${x} · ${relDay(date)}, ${mealName(meal)}`);
 }
 
+// Créneaux « reste » qui dépendent de ce plat (même recette, dans les 2 jours)
+function leftoverSlotsOf(d, date, meal, recipeId) {
+  const out = [];
+  for (let k = 0; k <= 2; k++) {
+    const day = addDays(date, k);
+    for (const m of ['dej', 'diner']) {
+      if (k === 0 && (m === meal || (meal === 'diner' && m === 'dej'))) continue;
+      const sl = d.plan[day]?.[m];
+      if (sl?.leftover && sl.status === 'planned' && sl.recipeId === recipeId && !d.inventory.some((x) => x.forSlot === `${day}|${m}`)) out.push({ date: day, meal: m, slot: sl });
+    }
+  }
+  return out;
+}
+
 function eatInDraft(d, date, meal) {
   const slot = d.plan[date]?.[meal];
   if (!slot || slot.status !== 'planned') return false;
   slot.status = 'eaten';
   const r = getRecipe(d, slot.recipeId);
-  if (r) slot.consumed = consumeLines(d, recipeLines(r, slot.swaps, slot.servings || 1));
+  if (!r) return true;
+  const lot = slot.leftover && d.inventory.find((x) => x.forSlot === `${date}|${meal}`);
+  if (lot) {
+    // Reste déjà cuisiné : on le sort du frigo, rien d'autre n'est déduit
+    slot.ateLeftover = { ...lot };
+    d.inventory = d.inventory.filter((x) => x.id !== lot.id);
+    return true;
+  }
+  // Cuisson pour ce repas et ses restes : tout est déduit maintenant, les parts vont au frigo
+  const rest = slot.leftover ? [] : leftoverSlotsOf(d, date, meal, r.id);
+  const lines = [slot, ...rest.map((x) => x.slot)].flatMap((sl) => slotLines(sl, r));
+  slot.consumed = consumeLines(d, lines);
+  slot.leftoverLots = rest.map((x) => {
+    const id = uid();
+    d.inventory.push({ id, ing: null, unit: 'pc', qty: 1, name: `Reste : ${r.name}`, leftoverOf: r.id, forSlot: `${x.date}|${x.meal}`, location: 'frigo', dlc: addDays(date, 2), productId: null, addedAt: today() });
+    return id;
+  });
   return true;
 }
 
@@ -72,6 +102,8 @@ export function resetSlot(date, meal) {
     const slot = d.plan[date]?.[meal];
     if (!slot) return;
     if (slot.status === 'eaten' && slot.consumed) restoreTaken(d, slot.consumed);
+    if (slot.status === 'eaten' && slot.leftoverLots) d.inventory = d.inventory.filter((x) => !slot.leftoverLots.includes(x.id));
+    if (slot.status === 'eaten' && slot.ateLeftover) d.inventory.push(slot.ateLeftover);
     if (slot.recipeId) d.plan[date][meal] = { recipeId: slot.recipeId, swaps: slot.swaps || {}, status: 'planned', ...(slot.servings ? { servings: slot.servings } : {}) };
     else delete d.plan[date][meal];
   });
@@ -328,7 +360,10 @@ export function planLeftover(date, meal, to = null) {
   if (!slot?.recipeId || !next) return;
   const prev = update((d) => {
     d.plan[next.date] = d.plan[next.date] || {};
-    d.plan[next.date][next.meal] = { recipeId: slot.recipeId, swaps: slot.swaps || {}, status: 'planned', leftover: true, ...(slot.servings ? { servings: slot.servings } : {}) };
+    const r = getRecipe(d, slot.recipeId);
+    const over = r && batchOver(d, r);
+    d.plan[next.date][next.meal] = { recipeId: slot.recipeId, swaps: slot.swaps || {}, status: 'planned', leftover: true, ...(slot.servings ? { servings: slot.servings } : {}), ...(over ? { over } : {}) };
+    if (over && d.plan[date][meal].status === 'planned') d.plan[date][meal].over = over;
   });
   undoable(prev, `Reste prévu · ${relDay(next.date)}, ${mealName(next.meal)}`);
 }
@@ -362,12 +397,30 @@ export function groupLeftovers(dates) {
       if (!pa || !pb || ra.id === rb.id) { if (ra && rb && ra.id === rb.id) i++; continue; }
       const same = pa === pb || equivOf(pa).includes(pb);
       if (!same) continue;
-      d.plan[seq[i + 1].date][seq[i + 1].meal] = { recipeId: ra.id, swaps: a.swaps || {}, status: 'planned', leftover: true, ...(a.servings ? { servings: a.servings } : {}) };
+      const over = batchOver(d, ra);
+      d.plan[seq[i + 1].date][seq[i + 1].meal] = { recipeId: ra.id, swaps: a.swaps || {}, status: 'planned', leftover: true, ...(a.servings ? { servings: a.servings } : {}), ...(over ? { over } : {}) };
+      if (over && a.status === 'planned') a.over = over;
       n++; i++;
     }
   });
   if (n) undoable(prev, `${n} plat${n > 1 ? 's' : ''} regroupé${n > 1 ? 's' : ''} en restes`);
   else toast('Rien à regrouper cette semaine');
+}
+
+export function addExtra(date, meal, extra) {
+  const prev = update((d) => {
+    d.extras = d.extras || {};
+    d.extras[date] = d.extras[date] || {};
+    d.extras[date][meal] = [...(d.extras[date][meal] || []), { id: uid(), ...extra }];
+  });
+  undoable(prev, `${extra.name} ajouté`);
+}
+export function removeExtra(date, meal, id) {
+  const prev = update((d) => {
+    const list = d.extras?.[date]?.[meal];
+    if (list) d.extras[date][meal] = list.filter((x) => x.id !== id);
+  });
+  undoable(prev, 'Retiré');
 }
 
 export function setSlotServings(date, meal, servings) {

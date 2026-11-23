@@ -161,10 +161,11 @@ export function allRecipes(s) {
 export const getRecipe = (s, id) => s.customRecipes.find((r) => r.id === id) || RECIPE[id] || null;
 
 const roundQty = (q, unit) => (unit === 'pc' ? Math.round(q * 2) / 2 : Math.round(q));
-export function recipeLines(recipe, swaps = {}, servings = 1) {
+export function recipeLines(recipe, swaps = {}, servings = 1, over = null) {
   return recipe.ingredients.filter((l) => ING[l.ing]).map((line, idx) => {
     const to = swaps?.[idx];
     if (to === '-') return null;
+    if (over?.[idx] != null && !(to && to !== line.ing)) return { ...line, qty: roundQty(over[idx] * servings, ING[line.ing].unit), idx, adjusted: true };
     if (to && to !== line.ing && ING[to]) {
       const from = ING[line.ing];
       const ratio = from.portion && ING[to].portion ? ING[to].portion / from.portion : 1;
@@ -457,7 +458,8 @@ export function compileNeeds(s, dates) {
       const slot = s.plan[date]?.[meal];
       const r = slot && getRecipe(s, slot.recipeId);
       if (!slot || slot.status !== 'planned' || !r) continue;
-      for (const l of recipeLines(r, slot.swaps, slot.servings || 1)) need[l.ing] = (need[l.ing] || 0) + l.qty;
+      if (slot.leftover && leftoverLotFor(s, date, meal)) continue;
+      for (const l of slotLines(slot, r)) need[l.ing] = (need[l.ing] || 0) + l.qty;
     }
   }
   const out = [];
@@ -514,13 +516,51 @@ export function slotKcal(s, slot) {
     return { kcal, prot: kcal * 0.04 };
   }
   const r = getRecipe(s, slot.recipeId);
-  return r ? nutrition(recipeLines(r, slot.swaps, slot.servings || 1), s) : { kcal: 0, prot: 0 };
+  return r ? nutrition(slotLines(slot, r), s) : { kcal: 0, prot: 0 };
+}
+export const slotLines = (slot, r) => recipeLines(r, slot.swaps, slot.servings || 1, slot.over);
+
+// « J'ai mangé en plus » : n'importe quel aliment, kcal calculées depuis l'aliment ou la nutrition du produit
+export function extraNutrition(s, x) {
+  const p = x.productId && getProduct(s, x.productId);
+  const n = x.nutri || p?.nutri;
+  const unit = x.unit || p?.unit || ING[x.ing || p?.ing]?.unit;
+  if (n?.kcal != null && (unit === 'g' || unit === 'ml')) return { kcal: (n.kcal * x.qty) / 100, prot: ((n.prot || 0) * x.qty) / 100 };
+  const ing = x.ing || p?.ing;
+  if (ing && ING[ing]) {
+    const q = unit === ING[ing].unit ? x.qty : unit === 'pc' && p?.size ? x.qty * p.size : x.qty;
+    return nutrition([{ ing, qty: q }], s);
+  }
+  return { kcal: 0, prot: 0 };
+}
+export const slotExtras = (s, date, meal) => s.extras?.[date]?.[meal] || [];
+
+// Reste au frigo prévu pour un créneau (créé quand le premier plat est mangé)
+export const leftoverLotFor = (s, date, meal) => s.inventory.find((x) => x.forSlot === `${date}|${meal}`);
+
+// Barquette partagée en deux plats : 300 g de poulet = 150 g par plat
+export function batchOver(s, r, portions = 2) {
+  const lines = r.ingredients.filter((l) => ING[l.ing]);
+  const idx = lines.findIndex((l) => BATCH_INGS.has(l.ing));
+  if (idx < 0) return null;
+  const line = lines[idx];
+  const unit = ING[line.ing].unit;
+  // Format de TES barquettes : produit préféré, puis en stock, puis le dernier acheté (sinon on ne touche à rien)
+  const pref = getProduct(s, s.brandPrefs?.[line.ing]);
+  const lotProd = s.inventory.map((x) => x.ing === line.ing && getProduct(s, x.productId)).find((p) => p?.size);
+  const last = [...s.customProducts].reverse().find((p) => p.ing === line.ing && p.size && !p.ignored);
+  const size = [pref, lotProd, last].map((p) => p && p.ing === line.ing && (p.unit || ING[p.ing]?.unit) === unit && p.size).find(Boolean);
+  if (!size) return null;
+  const per = unit === 'pc' ? Math.max(1, Math.round((size / portions) * 2) / 2) : Math.round(size / portions);
+  if (per < line.qty * 0.5 || per > line.qty * 1.7 || per === line.qty) return null;
+  return { [idx]: per };
 }
 
 export function dayTotals(s, date) {
   const plan = s.plan[date] || {};
   let eaten = 0, planned = 0, protEaten = 0, protPlanned = 0;
   for (const m of MEAL_KEYS) {
+    for (const x of slotExtras(s, date, m)) { const k = extraNutrition(s, x); eaten += k.kcal; planned += k.kcal; protEaten += k.prot; protPlanned += k.prot; }
     const slot = plan[m];
     if (!slot) continue;
     const k = slotKcal(s, slot);

@@ -428,6 +428,7 @@ export function matchIngredientText(text, { packaged } = {}) {
     let score = full ? 100 + 12 * name.length : near ? 90 + 12 * hits : hits * 8;
     if (!full && hits && name[0] && !set.has(name[0])) score -= 4;
     const kwHits = kw.filter((w) => set.has(w));
+    if (!full && !near && toks.length - hits - kwHits.length >= 2) continue;
     score += Math.min(12, kwHits.reduce((n, w) => n + (w.length > 5 ? 6 : 3), 0)) + 5 * (hits + kwHits.length);
     if (pct && pcts.length) score += pcts.includes(`${pct}%`) ? 15 : -15;
     if (score > 0 && packaged) score += (ing.unit === 'pc' ? -0.5 : 0.5) - (ing.fresh ? 1 : 0);

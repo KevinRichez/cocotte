@@ -4,6 +4,7 @@ import { Icon, Chip, Badge, Empty, Sheet, Seg, RecipeThumb } from '../components
 import { setProfile } from '../actions.js';
 import { RecipeSheet } from '../components/RecipeSheet.js';
 import { RecipeEditor } from '../components/RecipeEditor.js';
+import { RecipeImport } from '../components/RecipeImport.js';
 import { MEALS, MEAL_KEYS, EQUIPMENT } from '../data/recipes.js';
 import { ING } from '../data/ingredients.js';
 import { recipeStats, stockMatch, isBlocked, budgetLevel, budgetLabel, kcalFmt, allRecipes, recipeTier, TIER_META, norm, euro, blockReason } from '../lib/engine.js';
@@ -18,6 +19,7 @@ export function RecipesView() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [open, setOpen] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const enriched = useMemo(() => allRecipes(s).map((r) => {
     const st = recipeStats(s, r);
@@ -50,7 +52,10 @@ export function RecipesView() {
   return html`<div class="screen">
     <header class="topbar">
       <h1 class="h1">Recettes</h1>
-      <button type="button" class="btn soft sm" onClick=${() => setCreating(true)}><${Icon} name="plus" size=${16} />Créer</button>
+      <div class="row" style="gap:6px">
+        <button type="button" class="btn outline sm" onClick=${() => setImporting(true)}><${Icon} name="upload" size=${15} />Importer</button>
+        <button type="button" class="btn soft sm" onClick=${() => setCreating(true)}><${Icon} name="plus" size=${16} />Créer</button>
+      </div>
     </header>
 
     <div class="row" style="gap:8px">
@@ -101,6 +106,7 @@ export function RecipesView() {
     <${FiltersSheet} open=${filtersOpen} f=${f} setF=${setF} onClose=${() => setFiltersOpen(false)} count=${list.length} />
     <${RecipeSheet} recipeId=${open} onClose=${() => setOpen(null)} />
     <${RecipeEditor} open=${creating} onClose=${() => setCreating(false)} onSaved=${(id) => setOpen(id)} />
+    ${importing && html`<${RecipeImport} open=${true} onClose=${() => setImporting(false)} onSaved=${(id) => { setImporting(false); setOpen(id); }} />`}
   </div>`;
 }
 

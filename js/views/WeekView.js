@@ -1,17 +1,18 @@
 import { html, useState, useMemo } from '../lib/h.js';
 import { useStore } from '../store.js';
-import { Icon, Chip, Badge, Sheet, KcalGauge, RecipeThumb, PhotoButton } from '../components/ui.js';
+import { Icon, Chip, Badge, Sheet, KcalGauge, RecipeThumb, PhotoButton, Stepper } from '../components/ui.js';
+import { ProductSearch, Thumb } from '../components/ProductSearch.js';
 import { RecipeSheet } from '../components/RecipeSheet.js';
 import { MEALS, MEAL_KEYS } from '../data/recipes.js';
-import { ING } from '../data/ingredients.js';
+import { ING, fmtQty } from '../data/ingredients.js';
 import { today, addDays, weekStartOf, weekDays, dayShort, dayNum, relDay, dlcInfo, fmtShort } from '../lib/dates.js';
 import { confirmAction } from '../lib/confirm.js';
 import {
   suggest, slotKcal, recipeLines, nutrition, kcalFmt, compileNeeds, isSlotPast, OUTSIDE_TAGS, urgentIngs,
-  isBlocked, nextFreeSlot, getRecipe, allRecipes, targets, dayTotals, norm, slotBudget, fmtPortion, blockReason,
+  isBlocked, nextFreeSlot, getRecipe, allRecipes, targets, dayTotals, norm, slotBudget, fmtPortion, blockReason, slotExtras, extraNutrition, leftoverLotFor, getProduct, productTitle,
 } from '../lib/engine.js';
 import {
-  markEaten, markDayEaten, adjustDayPortions, resetWeekPortions, groupLeftovers, markOutside, skipSlot, resetSlot, clearSlot, planRecipe, placeDeferred, dropDeferred, generateList, autofillWeek,
+  markEaten, markDayEaten, adjustDayPortions, resetWeekPortions, groupLeftovers, addExtra, removeExtra, markOutside, skipSlot, resetSlot, clearSlot, planRecipe, placeDeferred, dropDeferred, generateList, autofillWeek,
 } from '../actions.js';
 
 export function WeekView() {
@@ -25,6 +26,7 @@ export function WeekView() {
   const [outside, setOutside] = useState(null);
   const [picker, setPicker] = useState(null);
   const [tools, setTools] = useState(false);
+  const [extra, setExtra] = useState(null);
 
   const shiftWeek = (n) => { const m = addDays(monday, n * 7); setMonday(m); setSel(weekDays(m).includes(t) ? t : m); };
   const futureDates = days.filter((d) => d >= t);
@@ -64,10 +66,13 @@ export function WeekView() {
     </div>
 
     <div class="stack">
-      ${MEAL_KEYS.map((meal) => html`<${SlotCard} key=${selected + meal} s=${s} date=${selected} meal=${meal}
-        onOpenRecipe=${(id) => setRecipeOpen({ id, slot: { date: selected, meal } })}
-        onOutside=${() => setOutside({ date: selected, meal })}
-        onPick=${() => setPicker({ date: selected, meal })} />`)}
+      ${MEAL_KEYS.map((meal) => html`<div key=${selected + meal}>
+        <${SlotCard} s=${s} date=${selected} meal=${meal}
+          onOpenRecipe=${(id) => setRecipeOpen({ id, slot: { date: selected, meal } })}
+          onOutside=${() => setOutside({ date: selected, meal })}
+          onPick=${() => setPicker({ date: selected, meal })} />
+        <${ExtrasRow} s=${s} date=${selected} meal=${meal} onAdd=${() => setExtra({ date: selected, meal })} />
+      </div>`)}
     </div>
 
     ${missing.length > 0 && html`<button type="button" class="btn ghost sm block" style="margin-top:14px" onClick=${() => generateList(futureDates)}>
@@ -75,10 +80,48 @@ export function WeekView() {
 
     <button type="button" class="btn ghost sm block" style="margin-top:10px" onClick=${() => setTools(true)}><${Icon} name="sliders" size=${15} />Outils de la semaine</button>
     <${WeekTools} open=${tools} days=${days} onClose=${() => setTools(false)} />
+    <${ExtraSheet} ctx=${extra} s=${s} onClose=${() => setExtra(null)} />
     <${RecipeSheet} recipeId=${recipeOpen?.id} target=${recipeOpen?.target} slot=${recipeOpen?.slot} onClose=${() => setRecipeOpen(null)} />
     <${OutsideSheet} ctx=${outside} s=${s} onClose=${() => setOutside(null)} />
     <${PickerSheet} ctx=${picker} s=${s} onClose=${() => setPicker(null)} onDetails=${(id, target) => { setPicker(null); setRecipeOpen({ id, target }); }} />
   </div>`;
+}
+
+function ExtrasRow({ s, date, meal, onAdd }) {
+  const list = slotExtras(s, date, meal);
+  return html`<div class="extras-row">
+    ${list.map((x) => html`<span class="chip sm extra-chip" key=${x.id}>${x.name} · ${kcalFmt(extraNutrition(s, x).kcal)} kcal
+      <button type="button" class="x" aria-label=${`Retirer ${x.name}`} onClick=${() => removeExtra(date, meal, x.id)}><${Icon} name="x" size=${12} /></button></span>`)}
+    <button type="button" class="extra-add" onClick=${onAdd}><${Icon} name="plus" size=${13} />J’ai mangé en plus</button>
+  </div>`;
+}
+
+function ExtraSheet({ ctx, s, onClose }) {
+  const [pid, setPid] = useState(null);
+  const [qty, setQty] = useState(null);
+  const close = () => { setPid(null); setQty(null); onClose(); };
+  if (!ctx) return html`<${Sheet} open=${false} />`;
+  const p = pid && getProduct(s, pid);
+  const unit = p ? (p.unit || ING[p.ing]?.unit || 'pc') : 'pc';
+  const def = p ? (unit === 'pc' ? 1 : p.size && p.size <= 250 ? p.size : ING[p.ing]?.portion || (unit === 'ml' ? 250 : 50)) : 1;
+  const q = qty ?? def;
+  const item = p && { productId: p.id, ing: p.ing || null, name: productTitle(p), qty: q, unit, ...(p.nutri ? { nutri: p.nutri } : {}) };
+  const k = item ? extraNutrition(s, item) : null;
+  const save = () => { addExtra(ctx.date, ctx.meal, item); close(); };
+  return html`<${Sheet} open=${true} onClose=${close} title="J’ai mangé en plus" subtitle=${`${relDay(ctx.date)} · ${MEALS[ctx.meal].label}`} tall=${!p}
+    footer=${p ? html`<div class="row"><button type="button" class="btn ghost" onClick=${() => { setPid(null); setQty(null); }}>Retour</button>
+      <button type="button" class="btn primary grow" onClick=${save}><${Icon} name="check" size=${18} />Ajouter</button></div>` : null}>
+    ${!p && html`<${ProductSearch} s=${s} onPick=${(id) => { setPid(id); setQty(null); }} placeholder="Chips, chocolat, pain…" />`}
+    ${p && html`<div>
+      <div class="card flat row" style="gap:12px">
+        <${Thumb} p=${p} cls="thumb sm stock-thumb" />
+        <div class="grow strong clamp2">${productTitle(p)}</div>
+      </div>
+      <div class="card flat row between" style="margin-top:12px"><b class="small">Quantité</b>
+        <${Stepper} value=${q} min=${unit === 'pc' ? 0.5 : 5} step=${unit === 'pc' ? 0.5 : unit === 'ml' ? 50 : 10} onChange=${setQty} format=${(v) => fmtQty(v, unit, p.ing)} /></div>
+      <p class="subtle" style="margin:10px 2px 0">${k && k.kcal > 0 ? `${kcalFmt(k.kcal)} kcal, compté dans ta journée.` : 'Valeurs nutritionnelles inconnues : scanne le produit pour les avoir.'}</p>
+    </div>`}
+  </${Sheet}>`;
 }
 
 function WeekTools({ open, days, onClose }) {
@@ -226,14 +269,13 @@ function SlotCard({ s, date, meal, onOpenRecipe, onOutside, onPick }) {
   const mealRow = r && html`<button type="button" class="meal" onClick=${() => onOpenRecipe(r.id)}>
     <${RecipeThumb} r=${r} />
     <div class="grow" style="min-width:0">
-      <div class="strong clamp2" style="line-height:1.25">${r.name}</div>
+      <div class="strong clamp2" style="line-height:1.25">${slot.leftover ? `Reste de ${r.name.charAt(0).toLowerCase()}${r.name.slice(1)}` : r.name}</div>
       <div class="meal-meta">
-        <span><${Icon} name="clock" size=${13} />${r.time} min</span>
+        ${slot.leftover ? html`<span>♻️ ${leftoverLotFor(s, date, meal) ? 'au frigo' : 'cuit avec le plat d’avant'}</span>` : html`<span><${Icon} name="clock" size=${13} />${r.time} min</span>`}
         <span><${Icon} name="flame" size=${13} />${kcalFmt(k.kcal)} kcal</span>
         <span>${Math.round(k.prot)} g prot.</span>
         ${slot.servings && slot.servings !== 1 && html`<span>${fmtPortion(slot.servings)}</span>`}
         ${Object.values(slot.swaps || {}).some(Boolean) && html`<span><${Icon} name="swap" size=${12} />adapté</span>`}
-        ${slot.leftover && html`<span>♻️ reste</span>`}
       </div>
     </div>
     <${Icon} name="chevR" size=${18} class="muted" />

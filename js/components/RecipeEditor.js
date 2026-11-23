@@ -80,7 +80,7 @@ export function RecipeEditor({ open, recipe, onClose, onSaved }) {
     onClose();
   };
 
-  return html`<${Sheet} open=${true} onClose=${onClose} title=${recipe ? 'Modifier la recette' : 'Nouvelle recette'} subtitle=${f.ingredients.length ? `${kcalFmt(kcal)} kcal par portion` : 'Quantités pour 1 portion'}
+  return html`<${Sheet} open=${true} onClose=${onClose} title=${recipe?.id ? 'Modifier la recette' : 'Nouvelle recette'} subtitle=${f.ingredients.length ? `${kcalFmt(kcal)} kcal par portion` : 'Quantités pour 1 portion'}
     footer=${html`<button type="button" class="btn primary block lg" onClick=${save}><${Icon} name="check" size=${18} />Enregistrer</button>`}>
     <p class="subtle xs" style="margin:0 2px 10px"><span class="req">*</span> champs obligatoires</p>
     <label class="label" for="re-name">Nom <span class="req">*</span></label>

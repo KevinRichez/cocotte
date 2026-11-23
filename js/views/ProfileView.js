@@ -92,6 +92,7 @@ function StockTab({ s }) {
 }
 
 function lotQty(x, p) {
+  if (x.leftoverOf) return `${String(x.qty).replace('.', ',')} portion${x.qty > 1 ? 's' : ''} · plat cuisiné`;
   const unit = ING[x.ing]?.unit || x.unit;
   const pUnit = p?.unit || ING[p?.ing]?.unit;
   if (p?.size && unit && unit !== 'pc' && pUnit === unit) {

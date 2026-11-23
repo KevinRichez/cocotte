@@ -34,7 +34,8 @@ export function RecipeSheet({ recipeId, onClose, target, slot: slotCtx }) {
     setServings(s.profile.autoPortions ? servingsFor(nutrition(recipeLines(r), s).kcal, budget, dir) : 1);
   }, [recipeId]);
 
-  const lines = useMemo(() => (r ? recipeLines(r, swaps, servings) : []), [r, swaps, servings]);
+  const slotOver = slotCtx && s.plan[slotCtx.date]?.[slotCtx.meal]?.recipeId === recipeId ? s.plan[slotCtx.date][slotCtx.meal].over : null;
+  const lines = useMemo(() => (r ? recipeLines(r, swaps, servings, slotOver) : []), [r, swaps, servings, slotOver]);
   if (!r) return null;
   const base = recipeLines(r, swaps);
   const per = nutrition(base, s);
