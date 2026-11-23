@@ -1,3 +1,4 @@
+import { ING } from './ingredients.js';
 export const EQUIPMENT = {
   plaques: { label: 'Plaques', emoji: '🔥' },
   poele: { label: 'Poêle', emoji: '🍳' },
@@ -277,5 +278,21 @@ export const RECIPES = [
     [i('crevettes', 120, 'proteine'), i('avocat', 1), i('salade', 60), i('pain', 60), i('mayonnaise', 15)],
     ['Couper l’avocat.', 'Mélanger crevettes, salade et mayonnaise.', 'Servir avec du pain.']),
 ];
+
+// Portions allégées (novembre 2026) : toutes les recettes intégrées à ~75 %, sauf celles réglées à la main.
+// Les recettes modifiées dans l'app (customRecipes) ne sont pas concernées.
+export const LIGHT_FACTOR = 0.75;
+const LIGHT_KEEP = new Set(['bowl_steak_riz']);
+for (const r of RECIPES) {
+  r.lightFactor = LIGHT_KEEP.has(r.id) ? 1 : LIGHT_FACTOR;
+  if (r.lightFactor === 1) continue;
+  r.baseIngredients = r.ingredients;
+  r.ingredients = r.ingredients.map((x) => {
+    const ing = ING[x.ing];
+    if (!ing || ing.staple) return x;
+    const q = x.qty * r.lightFactor;
+    return { ...x, qty: ing.unit === 'pc' ? Math.max(0.5, Math.round(q * 2) / 2) : Math.max(5, Math.round(q / 5) * 5) };
+  });
+}
 
 export const RECIPE = Object.fromEntries(RECIPES.map((r) => [r.id, r]));

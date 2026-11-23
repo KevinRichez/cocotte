@@ -518,7 +518,7 @@ export function slotKcal(s, slot) {
   const r = getRecipe(s, slot.recipeId);
   return r ? nutrition(slotLines(slot, r), s) : { kcal: 0, prot: 0 };
 }
-export const slotLines = (slot, r) => recipeLines(r, slot.swaps, slot.servings || 1, slot.over);
+export const slotLines = (slot, r) => recipeLines(slot.fullPortion && r.baseIngredients ? { ...r, ingredients: r.baseIngredients } : r, slot.swaps, slot.servings || 1, slot.over);
 
 // « J'ai mangé en plus » : n'importe quel aliment, kcal calculées depuis l'aliment ou la nutrition du produit
 export function extraNutrition(s, x) {

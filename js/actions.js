@@ -104,7 +104,7 @@ export function resetSlot(date, meal) {
     if (slot.status === 'eaten' && slot.consumed) restoreTaken(d, slot.consumed);
     if (slot.status === 'eaten' && slot.leftoverLots) d.inventory = d.inventory.filter((x) => !slot.leftoverLots.includes(x.id));
     if (slot.status === 'eaten' && slot.ateLeftover) d.inventory.push(slot.ateLeftover);
-    if (slot.recipeId) d.plan[date][meal] = { recipeId: slot.recipeId, swaps: slot.swaps || {}, status: 'planned', ...(slot.servings ? { servings: slot.servings } : {}) };
+    if (slot.recipeId) d.plan[date][meal] = { recipeId: slot.recipeId, swaps: slot.swaps || {}, status: 'planned', ...(slot.servings ? { servings: slot.servings } : {}), ...(slot.over ? { over: slot.over } : {}), ...(slot.leftover ? { leftover: true } : {}), ...(slot.fullPortion ? { fullPortion: true } : {}) };
     else delete d.plan[date][meal];
   });
 }
@@ -535,6 +535,28 @@ export function relinkLegacy() {
     }
   });
   if (fixes.length) toast(`${fixes.length} produit${fixes.length > 1 ? 's' : ''} mieux reconnu${fixes.length > 1 ? 's' : ''} (ex : pâte à tartiner)`, { action: 'Annuler', onAction: () => restore(prev), duration: 8000 });
+}
+
+// Recettes allégées : les repas jusqu'au lundi 23 novembre gardent exactement leurs quantités
+export function keepPastPortionsV1() {
+  const s = getState();
+  if (s.flags?.lightV1) return;
+  const custom = new Set(s.customRecipes.map((r) => r.id));
+  let n = 0;
+  update((d) => {
+    d.flags = { ...(d.flags || {}), lightV1: true };
+    for (const [date, slots] of Object.entries(d.plan)) {
+      if (date > '2026-11-23') continue;
+      for (const slot of Object.values(slots || {})) {
+        const r = slot?.recipeId && !custom.has(slot.recipeId) ? RECIPE[slot.recipeId] : null;
+        if (!r || !r.lightFactor || r.lightFactor === 1) continue;
+        slot.fullPortion = true;
+        n++;
+      }
+    }
+  });
+  toast('Recettes allégées pour la suite (environ 25 % en moins). Tes repas d’avant restent inchangés.', { duration: 7000 });
+  return n;
 }
 
 export function restockCandidates(s) {
