@@ -35,7 +35,7 @@ export const RECIPES = [
     [i('riz', 100, 'feculent'), i('oeufs', 2, 'proteine'), i('carottes', 80), i('poivron', 0.5), i('huile', 10)],
     ['Cuire le riz ou utiliser un reste.', 'Faire sauter carottes et poivron 4 min dans l’huile.', 'Brouiller les œufs dans la poêle.', 'Ajouter le riz, faire sauter 2 min.']),
   R('bowl_steak_riz', 'Bowl steak haché, riz & maïs', '🥩', '#F4DED6', 15, ['plaques', 'casserole', 'poele'], DD,
-    [i('riz', 100, 'feculent'), i('steak15', 2, 'proteine'), i('mais', 80), i('tomate', 1)],
+    [i('riz', 75, 'feculent'), i('steak15', 1, 'proteine'), i('mais', 80), i('tomate', 1)],
     ['Cuire le riz.', 'Cuire les steaks 3 min par face.', 'Égoutter le maïs, couper la tomate.', 'Dresser en bol.']),
   R('omelette_jambon', 'Omelette jambon-fromage & pain', '🍳', '#FBF3D9', 8, ['plaques', 'poele'], ['petitdej', 'dej', 'diner'],
     [i('oeufs', 3, 'proteine'), i('jambon', 2), i('emmental', 30), i('pain', 80), i('beurre', 5)],
