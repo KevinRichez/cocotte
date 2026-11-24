@@ -10,19 +10,15 @@ export const euro = (n) => `${(Math.round(n * 100) / 100).toLocaleString('fr-FR'
 export const kcalFmt = (n) => Math.round(n).toLocaleString('fr-FR');
 // x1,25 = une seule portion, 25 % plus grande
 export function fmtPortion(v) {
-  if (v === 1) return '1 portion';
-  if (v === 2) return 'Portion double';
-  if (v === 1.5) return '1 portion et demie';
-  if (v > 1 && v <= 2.5) return `1 portion +${Math.round((v - 1) * 100)} %`;
-  if (v < 1) return `1 portion ${Math.round((v - 1) * 100)} %`.replace('-', 'moins ');
-  return `${String(v).replace('.', ',')} portions`;
+  const n = Math.round(v * 100) / 100;
+  return `${String(n).replace('.', ',')} portion${n >= 2 ? 's' : ''}`;
 }
 
 export const TIER_META = {
   refuge: { label: 'Refuge', emoji: '💙', tone: 'sky', hint: 'Ceux qui te font du bien, mis en avant.' },
   ok: { label: 'OK', emoji: '👍', tone: 'sage', hint: 'Tu aimes bien, sans plus.' },
   doux: { label: 'Défi doux', emoji: '🌱', tone: 'lav', hint: 'Proposés de temps en temps, jamais imposés.' },
-  nogo: { label: 'No-go', emoji: '🙅', tone: 'mute', hint: 'Masqués partout.' },
+  nogo: { label: 'No-go', emoji: '🚫', tone: 'mute', hint: 'Masqués partout.' },
 };
 export const TIER_KEYS = ['refuge', 'ok', 'doux', 'nogo'];
 export const ingTier = (s, id) => s.prefs.ing[id] || null;

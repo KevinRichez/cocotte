@@ -85,14 +85,14 @@ export function markOutside(date, meal, { tags, note }) {
   undoable(prev, replaced ? `Noté · « ${replaced} » sera re-proposé` : 'Noté, profite bien !');
 }
 
-export function skipSlot(date, meal) {
+export function skipSlot(date, meal, info = null) {
   const prev = update((d) => {
     d.plan[date] = d.plan[date] || {};
     const slot = d.plan[date][meal];
     if (slot?.recipeId && slot.status === 'planned' && meal !== 'collation') {
       d.deferred.push({ id: uid(), recipeId: slot.recipeId, swaps: slot.swaps || {}, from: { date, meal } });
     }
-    d.plan[date][meal] = { status: 'skipped', recipeId: slot?.recipeId };
+    d.plan[date][meal] = { status: 'skipped', recipeId: slot?.recipeId, ...(info && (info.tags?.length || info.note) ? { skip: info } : {}) };
   });
   undoable(prev, 'Repas passé');
 }
@@ -538,6 +538,32 @@ export function relinkLegacy() {
 }
 
 // Recettes allégées : les repas jusqu'au lundi 23 novembre gardent exactement leurs quantités
+// Correction n° 2 : fromage blanc au lait relié à « lait » (ml), etc. Les g et ml sont interchangeables.
+export function relinkLegacyV3() {
+  const s = getState();
+  if (s.flags?.relinkV3) return;
+  const fixes = [];
+  const ok = (a, b) => a === b || ((a === 'g' || a === 'ml') && (b === 'g' || b === 'ml'));
+  for (const p of s.customProducts) {
+    if (p.ignored || !p.ing) continue;
+    const m = matchIngredientText(`${p.offName || ''} ${p.name || ''}`);
+    if (m && m !== p.ing && ok(ING[m].unit, ING[p.ing].unit) && (!p.edited || /^lait/.test(p.ing))) fixes.push([p.id, p.ing, m]);
+  }
+  if (fixes.length) backupNow(s, 'avant');
+  const prev = update((d) => {
+    d.flags = { ...(d.flags || {}), relinkV3: true };
+    for (const [id, old, ing] of fixes) {
+      const p = d.customProducts.find((x) => x.id === id);
+      Object.assign(p, { ing, unit: ING[ing].unit, emoji: ING[ing].emoji, aisle: ING[ing].aisle });
+      for (const lot of d.inventory) if (lot.productId === id && lot.ing === old) lot.ing = ing;
+      if (d.brandPrefs[old] === id) { delete d.brandPrefs[old]; d.brandPrefs[ing] = id; }
+      // Recettes modifiées où ce produit remplaçait un ingrédient : on remet le bon aliment
+      for (const r of d.customRecipes) for (const x of r.ingredients) if (x.ing === old && /fromage blanc/i.test(r.name) && ing === 'fromage_blanc') x.ing = ing;
+    }
+  });
+  if (fixes.length) toast(`${fixes.length} produit${fixes.length > 1 ? 's' : ''} mieux reconnu${fixes.length > 1 ? 's' : ''} (ex : fromage blanc, en g)`, { action: 'Annuler', onAction: () => restore(prev), duration: 8000 });
+}
+
 export function keepPastPortionsV1() {
   const s = getState();
   if (s.flags?.lightV1) return;
@@ -557,6 +583,22 @@ export function keepPastPortionsV1() {
   });
   if (s.profile.onboarded && Object.keys(s.plan).length) toast('Recettes allégées pour la suite (environ 25 % en moins). Tes repas d’avant restent inchangés.', { duration: 7000 });
   return n;
+}
+
+// « Je l'ai déjà » : un ingrédient de la semaine que l'app n'avait pas vu passe dans le stock
+export function haveIngredient(ing, qty) {
+  const prev = update((d) => { addToInventory(d, { ing, name: ING[ing].name, qty, dlc: estimateDlc(d, null, ing), location: ING[ing].storage }); });
+  undoable(prev, `${ING[ing].name} ajouté à ton stock`);
+}
+export function addNeedsToList(items) {
+  const prev = update((d) => {
+    for (const n of items) {
+      const ex = d.shoppingList.find((x) => x.productId === n.productId && !x.checked);
+      if (ex) ex.qty = Math.max(ex.qty, n.packs);
+      else d.shoppingList.push({ id: uid(), productId: n.productId, qty: n.packs, checked: false, source: 'plan' });
+    }
+  });
+  undoable(prev, `${items.length} produit${items.length > 1 ? 's' : ''} ajouté${items.length > 1 ? 's' : ''} à ta liste`);
 }
 
 export function restockCandidates(s) {

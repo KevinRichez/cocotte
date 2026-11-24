@@ -9,7 +9,7 @@ import { MEALS, MEAL_KEYS, EQUIPMENT } from '../data/recipes.js';
 import { ING } from '../data/ingredients.js';
 import { recipeStats, stockMatch, isBlocked, budgetLevel, budgetLabel, kcalFmt, allRecipes, recipeTier, TIER_META, norm, euro, blockReason } from '../lib/engine.js';
 
-const NO_FILTERS = { time: null, budget: null, stock: false, tier: null, mine: false };
+const NO_FILTERS = { time: null, budget: null, stock: false, tier: null, mine: false, showBlocked: false };
 
 export function RecipesView() {
   const s = useStore();
@@ -28,7 +28,7 @@ export function RecipesView() {
   }), [s.inventory, s.prefs, s.priceOverrides, s.customRecipes, s.profile.equipment, s.profile.stores]);
 
   const nq = norm(q);
-  const list = enriched.filter((x) => !x.blocked
+  const list = enriched.filter((x) => (!x.blocked || (f.showBlocked && x.why?.type === 'equip'))
     && (!nq || norm(x.r.name).includes(nq) || x.lines.some((l) => norm(ING[l.ing].name).includes(nq)))
     && (meal === 'all' || x.r.meals.includes(meal))
     && (!f.time || x.r.time <= f.time)
@@ -47,13 +47,14 @@ export function RecipesView() {
     f.stock && { k: 'stock', label: 'Avec mon stock' },
     f.tier && { k: 'tier', label: `${TIER_META[f.tier].emoji} ${TIER_META[f.tier].label}` },
     f.mine && { k: 'mine', label: 'Mes recettes' },
+    f.showBlocked && { k: 'showBlocked', label: 'Matériel manquant affiché' },
   ].filter(Boolean);
 
   return html`<div class="screen">
     <header class="topbar">
       <h1 class="h1">Recettes</h1>
       <div class="row" style="gap:6px">
-        <button type="button" class="btn outline sm" onClick=${() => setImporting(true)}><${Icon} name="upload" size=${15} />Importer</button>
+        <button type="button" class="btn outline sm" onClick=${() => setImporting(true)}><${Icon} name="download" size=${15} />Importer</button>
         <button type="button" class="btn soft sm" onClick=${() => setCreating(true)}><${Icon} name="plus" size=${16} />Créer</button>
       </div>
     </header>
@@ -84,7 +85,7 @@ export function RecipesView() {
         <div class="rbody">
           <div class="rname">${x.r.name}</div>
           <div class="meal-meta" style="margin-top:auto;padding-top:4px">
-            <span><${Icon} name="clock" size=${12} />${x.r.time}′</span>
+            <span><${Icon} name="clock" size=${12} />${x.r.time} min</span>
             <span>${kcalFmt(x.kcal)} kcal</span>
             <span>${budgetLabel(x.budget)}</span>
           </div>
@@ -136,7 +137,9 @@ function FiltersSheet({ open, f, setF, onClose, count }) {
       <div class="chips">${['refuge', 'ok', 'doux'].map((k) => html`<${Chip} active=${f.tier === k} onClick=${() => set('tier', k)}>${TIER_META[k].emoji} ${TIER_META[k].label}</${Chip}>`)}
         <${Chip} active=${f.mine} onClick=${() => setF({ ...f, mine: !f.mine })}>✍️ Mes recettes</${Chip}></div></div>
     <div class="filter-group"><div class="label">Stock</div>
-      <div class="chips"><${Chip} active=${f.stock} onClick=${() => setF({ ...f, stock: !f.stock })}>🧊 Faisable avec mon stock</${Chip}></div></div>
-    <p class="subtle">Les recettes qui demandent du matériel que tu n'as pas sont déjà masquées.</p>
+      <div class="chips"><${Chip} active=${f.stock} onClick=${() => setF({ ...f, stock: !f.stock })}>Faisable avec ce que j’ai</${Chip}></div></div>
+    <div class="filter-group"><div class="label">Matériel</div>
+      <p class="subtle" style="margin:0 2px 8px">Les recettes qui demandent du matériel que tu n’as pas sont masquées.</p>
+      <div class="chips"><${Chip} active=${f.showBlocked} onClick=${() => setF({ ...f, showBlocked: !f.showBlocked })}>${f.showBlocked ? '✓ ' : ''}Les afficher quand même</${Chip}></div></div>
   </${Sheet}>`;
 }

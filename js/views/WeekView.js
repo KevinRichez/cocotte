@@ -12,7 +12,7 @@ import {
   isBlocked, nextFreeSlot, getRecipe, allRecipes, targets, dayTotals, norm, slotBudget, fmtPortion, blockReason, slotExtras, extraNutrition, leftoverLotFor, getProduct, productTitle,
 } from '../lib/engine.js';
 import {
-  markEaten, markDayEaten, adjustDayPortions, resetWeekPortions, groupLeftovers, addExtra, removeExtra, markOutside, skipSlot, resetSlot, clearSlot, planRecipe, placeDeferred, dropDeferred, generateList, autofillWeek,
+  markEaten, markDayEaten, adjustDayPortions, resetWeekPortions, groupLeftovers, addExtra, removeExtra, haveIngredient, addNeedsToList, markOutside, skipSlot, resetSlot, clearSlot, planRecipe, placeDeferred, dropDeferred, generateList, autofillWeek,
 } from '../actions.js';
 
 export function WeekView() {
@@ -27,6 +27,8 @@ export function WeekView() {
   const [picker, setPicker] = useState(null);
   const [tools, setTools] = useState(false);
   const [extra, setExtra] = useState(null);
+  const [skip, setSkip] = useState(null);
+  const [needsOpen, setNeedsOpen] = useState(false);
 
   const shiftWeek = (n) => { const m = addDays(monday, n * 7); setMonday(m); setSel(weekDays(m).includes(t) ? t : m); };
   const futureDates = days.filter((d) => d >= t);
@@ -70,17 +72,18 @@ export function WeekView() {
         <${SlotCard} s=${s} date=${selected} meal=${meal}
           onOpenRecipe=${(id) => setRecipeOpen({ id, slot: { date: selected, meal } })}
           onOutside=${() => setOutside({ date: selected, meal })}
-          onPick=${() => setPicker({ date: selected, meal })} />
+          onPick=${() => setPicker({ date: selected, meal })}
+          onSkip=${() => setSkip({ date: selected, meal })} />
         <${ExtrasRow} s=${s} date=${selected} meal=${meal} onAdd=${() => setExtra({ date: selected, meal })} />
       </div>`)}
     </div>
 
-    ${missing.length > 0 && html`<button type="button" class="btn ghost sm block" style="margin-top:14px" onClick=${() => generateList(futureDates)}>
-      <${Icon} name="cart" size=${15} />${missing.length} produit${missing.length > 1 ? 's' : ''} à acheter pour tes repas · Ajouter à ma liste</button>`}
+    ${missing.length > 0 && html`<${NeedsBox} s=${s} items=${missing} open=${needsOpen} onToggle=${() => setNeedsOpen(!needsOpen)} />`}
 
     <button type="button" class="btn ghost sm block" style="margin-top:10px" onClick=${() => setTools(true)}><${Icon} name="sliders" size=${15} />Outils de la semaine</button>
     <${WeekTools} open=${tools} days=${days} onClose=${() => setTools(false)} />
     <${ExtraSheet} ctx=${extra} s=${s} onClose=${() => setExtra(null)} />
+    <${SkipSheet} ctx=${skip} onClose=${() => setSkip(null)} />
     <${RecipeSheet} recipeId=${recipeOpen?.id} target=${recipeOpen?.target} slot=${recipeOpen?.slot} onClose=${() => setRecipeOpen(null)} />
     <${OutsideSheet} ctx=${outside} s=${s} onClose=${() => setOutside(null)} />
     <${PickerSheet} ctx=${picker} s=${s} onClose=${() => setPicker(null)} onDetails=${(id, target) => { setPicker(null); setRecipeOpen({ id, target }); }} />
@@ -122,6 +125,45 @@ function ExtraSheet({ ctx, s, onClose }) {
       <p class="subtle" style="margin:10px 2px 0">${k && k.kcal > 0 ? `${kcalFmt(k.kcal)} kcal, compté dans ta journée.` : 'Valeurs nutritionnelles inconnues : scanne le produit pour les avoir.'}</p>
     </div>`}
   </${Sheet}>`;
+}
+
+const SKIP_TAGS = [['faim', 'Pas faim'], ['temps', 'Pas le temps'], ['tot', 'Mangé plus tôt'], ['envie', 'Pas envie']];
+
+function SkipSheet({ ctx, onClose }) {
+  const [tags, setTags] = useState([]);
+  const [note, setNote] = useState('');
+  const close = () => { setTags([]); setNote(''); onClose(); };
+  if (!ctx) return html`<${Sheet} open=${false} />`;
+  const save = () => { skipSlot(ctx.date, ctx.meal, { tags, note: note.trim().slice(0, 80) }); close(); };
+  const toggle = (id) => setTags(tags.includes(id) ? tags.filter((x) => x !== id) : [...tags, id]);
+  return html`<${Sheet} open=${true} onClose=${close} title="Je passe ce repas" subtitle=${`${relDay(ctx.date)} · ${MEALS[ctx.meal].label}`}
+    footer=${html`<button type="button" class="btn primary block lg" onClick=${save}><${Icon} name="check" size=${18} />Enregistrer</button>`}>
+    <div class="label">Tu veux préciser ? (facultatif)</div>
+    <div class="chips">${SKIP_TAGS.map(([id, l]) => html`<${Chip} active=${tags.includes(id)} onClick=${() => toggle(id)}>${l}</${Chip}>`)}</div>
+    <div style="margin-top:14px"><label class="label" for="skip-note">Un mot ?</label>
+      <input id="skip-note" class="field" maxlength="80" placeholder="Ex : grosse collation à 16 h" value=${note} onInput=${(e) => setNote(e.currentTarget.value)} /></div>
+  </${Sheet}>`;
+}
+
+// Produits à acheter pour les repas prévus : à cocher un par un, ou « je l'ai déjà »
+function NeedsBox({ s, items, open, onToggle }) {
+  const [off, setOff] = useState({});
+  const chosen = items.filter((n) => !off[n.productId]);
+  return html`<div class="card flat" style="margin-top:14px;padding:0;overflow:hidden">
+    <button type="button" class="row between" style="width:100%;padding:12px 14px" onClick=${onToggle}>
+      <span class="row" style="gap:8px"><${Icon} name="cart" size=${16} /><span class="small strong">${items.length} produit${items.length > 1 ? 's' : ''} à acheter pour tes repas</span></span>
+      <${Icon} name=${open ? 'chevU' : 'chevD'} size=${16} /></button>
+    ${open && html`<div>
+      ${items.map((n) => { const ing = ING[n.ing]; const p = getProduct(s, n.productId); return html`<div class="list-item" key=${n.productId} style="min-height:56px">
+        <button type="button" class=${`check ${off[n.productId] ? '' : 'on'}`} aria-label="Ajouter à la liste" onClick=${() => setOff({ ...off, [n.productId]: !off[n.productId] })}><${Icon} name="check" size=${16} stroke=${3} /></button>
+        <div class="grow" style="min-width:0"><div class="small strong clamp2">${ing?.emoji || '🛒'} ${p ? productTitle(p) : ing?.name}</div>
+          <div class="subtle xs">${n.missing ? `Il manque ${fmtQty(n.missing, ing.unit, n.ing)}` : 'À avoir sous la main'}</div></div>
+        <button type="button" class="btn ghost sm" onClick=${() => haveIngredient(n.ing, Math.max(n.missing || 0, ing.unit === 'pc' ? 1 : 100))}>Je l’ai déjà</button>
+      </div>`; })}
+      <div style="padding:10px 14px 14px"><button type="button" class="btn primary block" disabled=${!chosen.length} onClick=${() => { addNeedsToList(chosen); setOff({}); onToggle(); }}>
+        <${Icon} name="cart" size=${17} />Ajouter ${chosen.length} produit${chosen.length > 1 ? 's' : ''} à ma liste</button></div>
+    </div>`}
+  </div>`;
 }
 
 function WeekTools({ open, days, onClose }) {
@@ -228,7 +270,7 @@ function Nudges({ s, onOpen }) {
   return html`<div class="stack" style="margin-top:12px">${items}</div>`;
 }
 
-function SlotCard({ s, date, meal, onOpenRecipe, onOutside, onPick }) {
+function SlotCard({ s, date, meal, onOpenRecipe, onOutside, onPick, onSkip }) {
   const slot = s.plan[date]?.[meal];
   const r = slot?.recipeId ? getRecipe(s, slot.recipeId) : null;
   const past = isSlotPast(date, meal);
@@ -241,7 +283,7 @@ function SlotCard({ s, date, meal, onOpenRecipe, onOutside, onPick }) {
         <div class="quick-actions">
           <button type="button" class="qa" onClick=${onPick}><${Icon} name="plus" size=${15} />Repas</button>
           <button type="button" class="qa out" onClick=${onOutside}><${Icon} name="utensils" size=${15} />Dehors</button>
-          <button type="button" class="qa skip" onClick=${() => skipSlot(date, meal)}><${Icon} name="cloud" size=${15} />Je passe</button>
+          <button type="button" class="qa skip" onClick=${onSkip}><${Icon} name="cloud" size=${15} />Je passe</button>
         </div>
       </div>`;
     }
@@ -260,7 +302,7 @@ function SlotCard({ s, date, meal, onOpenRecipe, onOutside, onPick }) {
       </button>`)}
       <div class="row" style="margin-top:8px;gap:6px">
         <button type="button" class="qa out grow" onClick=${onOutside}><${Icon} name="utensils" size=${15} />Pris dehors</button>
-        <button type="button" class="qa skip grow" onClick=${() => skipSlot(date, meal)}><${Icon} name="cloud" size=${15} />Je passe</button>
+        <button type="button" class="qa skip grow" onClick=${onSkip}><${Icon} name="cloud" size=${15} />Je passe</button>
       </div>
     </div>`;
   }
@@ -296,7 +338,7 @@ function SlotCard({ s, date, meal, onOpenRecipe, onOutside, onPick }) {
 
   if (slot.status === 'skipped') {
     return html`<div class="card slot state-skipped">${head(html`<button type="button" class="btn ghost sm" onClick=${() => resetSlot(date, meal)}>Annuler</button>`)}
-      <div class="subtle">Repas passé</div>
+      <div class="subtle">Repas passé${slot.skip ? ` · ${[...(slot.skip.tags || []).map((id) => SKIP_TAGS.find((x) => x[0] === id)?.[1]).filter(Boolean), slot.skip.note].filter(Boolean).join(' · ')}` : ''}</div>
     </div>`;
   }
 
@@ -308,7 +350,7 @@ function SlotCard({ s, date, meal, onOpenRecipe, onOutside, onPick }) {
   if (slot.status === 'eaten') {
     return html`<div class="card slot state-eaten">${head(html`<button type="button" class="btn ghost sm" onClick=${() => resetSlot(date, meal)}>Annuler</button>`)}
       ${mealRow}
-      <div class="status-line row between"><${Badge} tone="sage"><${Icon} name="check" size=${12} />Mangé</${Badge}><${PhotoButton} recipeId=${r.id} /></div>
+      <div class="status-line"><${Badge} tone="sage"><${Icon} name="check" size=${12} />Mangé</${Badge}></div>
     </div>`;
   }
 
@@ -321,7 +363,7 @@ function SlotCard({ s, date, meal, onOpenRecipe, onOutside, onPick }) {
     <div class="quick-actions">
       <button type="button" class="qa eat" onClick=${() => markEaten(date, meal)}><${Icon} name="check" size=${15} />Mangé</button>
       <button type="button" class="qa out" onClick=${onOutside}><${Icon} name="utensils" size=${15} />Dehors</button>
-      <button type="button" class="qa skip" onClick=${() => skipSlot(date, meal)}><${Icon} name="cloud" size=${15} />Je passe</button>
+      <button type="button" class="qa skip" onClick=${onSkip}><${Icon} name="cloud" size=${15} />Je passe</button>
     </div>
   </div>`;
 }

@@ -86,7 +86,7 @@ export function RecipeSheet({ recipeId, onClose, target, slot: slotCtx }) {
     <${TierPicker} value=${tier} onChange=${(v) => setTier('recipe', r.id, v)} />
     <div class="stat-grid" style="margin:14px 0 12px">
       ${r.prep != null || r.cook != null
-        ? html`<div class="stat"><b>${r.prep || 0}+${r.cook || 0}′</b><span>Prépa + cuisson</span></div>`
+        ? html`<div class="stat"><b>${r.prep || 0} + ${r.cook || 0} min</b><span>Prépa + cuisson</span></div>`
         : html`<div class="stat"><b>${r.time} min</b><span>Temps</span></div>`}
       <div class="stat"><b>${kcalFmt(per.kcal)}</b><span>kcal / pers.</span></div>
       <div class="stat"><b>${Math.round(per.prot)} g</b><span>Protéines</span></div>

@@ -467,7 +467,7 @@ function SettingsSheet({ open, onClose, s }) {
       <b class="small">Mes données</b>
       <div class="subtle xs" style="margin:2px 0 10px">Tout est stocké sur ton téléphone. Les recherches de produits en ligne passent par Open Food Facts.</div>
       <div class="row wrap" style="gap:8px">
-        <button type="button" class="btn ghost sm" onClick=${exportData}><${Icon} name="upload" size=${15} />Télécharger une sauvegarde</button>
+        <button type="button" class="btn ghost sm" onClick=${exportData}><${Icon} name="download" size=${15} />Télécharger une sauvegarde</button>
         <label class="btn ghost sm" style="cursor:pointer"><${Icon} name="refresh" size=${15} />Restaurer un fichier
           <input type="file" accept="application/json,.json" hidden onChange=${importData} /></label>
       </div>

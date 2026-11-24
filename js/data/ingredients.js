@@ -403,7 +403,9 @@ export function matchTokens(text) {
 // Mots qui changent la nature du produit : « pâte brisée » n'est pas « pâtes », « lait de coco » n'est pas « lait »
 const NOT_IF = {
   pates: ['tartiner', 'brisee', 'sablee', 'feuilletee', 'pizza', 'curry', 'fruit', 'amande', 'lasagne'],
-  lait: ['coco', 'soja', 'amande', 'avoine', 'riz', 'corp', 'toilette', 'chocolate', 'chocolat'],
+  lait: ['coco', 'soja', 'amande', 'avoine', 'riz', 'corp', 'toilette', 'chocolate', 'chocolat', 'fromage', 'yaourt', 'dessert', 'creme', 'skyr', 'petit', 'suisse'],
+  lait_entier: ['fromage', 'yaourt', 'dessert', 'creme', 'skyr', 'riz', 'chocolat', 'coco', 'petit', 'suisse'],
+  lait_ecreme: ['fromage', 'yaourt', 'dessert', 'creme', 'skyr', 'riz', 'chocolat', 'coco', 'petit', 'suisse'],
   pomme: ['terre', 'jus', 'compote'], tomate: ['sauce', 'pulpe', 'concentre', 'pelee', 'passata', 'cerise'],
   beurre: ['cacahuete', 'demi', 'sale'], creme: ['dessert', 'glacee'], sucre: ['vanille'], chocolat: ['poudre', 'blanc', 'noir', 'pepite'],
   oignon: ['poudre'], ail: ['poudre'], riz: ['lait', 'galette'], poulet: ['roti', 'cuit', 'nugget', 'cordon'],

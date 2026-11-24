@@ -29,7 +29,7 @@ export function Toggle({ on, onChange, label }) {
 // Touche la valeur pour taper le chiffre exact (ex : 250 g pile)
 export function Stepper({ value, onChange, min = 0, max = Infinity, step = 1, format }) {
   const [typing, setTyping] = useState(false);
-  const set = (v) => onChange(Math.min(max, Math.max(min, Math.round(v * 10) / 10)));
+  const set = (v) => onChange(Math.min(max, Math.max(min, Math.round(v * 100) / 100)));
   const commit = (e) => {
     const v = parseFloat(String(e.currentTarget.value).replace(',', '.').replace(/[^\d.]/g, ''));
     setTyping(false);
