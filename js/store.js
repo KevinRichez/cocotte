@@ -13,10 +13,14 @@ function sanitize(s) {
   const out = { ...base, ...s };
   out.ui = isObj(s.ui) ? { ...base.ui, ...s.ui } : base.ui;
   out.profile = isObj(s.profile) ? { ...defaultProfile(), ...s.profile } : defaultProfile();
+  const dp = defaultProfile();
+  if (!isObj(out.profile.household)) out.profile.household = dp.household;
+  for (const k of ['diets', 'priorities']) if (!Array.isArray(out.profile[k])) out.profile[k] = [];
+  out.profile.reminders = { ...dp.reminders, ...(isObj(out.profile.reminders) ? out.profile.reminders : {}) };
   out.prefs = { ing: isObj(s.prefs?.ing) ? s.prefs.ing : {}, recipe: isObj(s.prefs?.recipe) ? s.prefs.recipe : {} };
   for (const k of ['inventory', 'deferred', 'shoppingList', 'history', 'customProducts', 'customRecipes']) out[k] = arr(s[k]).filter(isObj);
   out.inventory = out.inventory.filter((x) => typeof x.qty === 'number' && x.qty > 0);
-  for (const k of ['plan', 'priceOverrides', 'brandPrefs', 'productOverrides', 'extras']) out[k] = isObj(s[k]) ? s[k] : {};
+  for (const k of ['plan', 'priceOverrides', 'brandPrefs', 'productOverrides', 'extras', 'needsSkip']) out[k] = isObj(s[k]) ? s[k] : {};
   return out;
 }
 
@@ -76,6 +80,7 @@ save();
 dailyBackup();
 
 export const getState = () => state;
+export const subscribe = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
 
 export function update(mutator) {
   const prev = state;

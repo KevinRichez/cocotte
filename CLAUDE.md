@@ -5,7 +5,7 @@ Utilisateur principal : UX/UI designer exigeant, objectif prise de poids, gestio
 
 ## Règles produit
 
-- **Bienveillance (TCA)** : jamais de rouge, jamais d'alerte culpabilisante, jamais "excès", "trop", "raté". Les kcal sont toujours affichées (choix de l'utilisateur) via une jauge neutre.
+- **Bienveillance (TCA)** : jamais de rouge, jamais d'alerte culpabilisante, jamais "excès", "trop", "raté". Les kcal sont affichées par défaut via une jauge neutre ; `profile.showNumbers = false` masque tous les chiffres (`showNumbers(s)` dans engine).
 - "Je passe" affiche juste "Repas passé" (pas de badge "Écouté ma satiété", retiré à la demande).
 - **Zéro friction / automatique** : ce qui peut être déduit l'est (ticket => stock rangé + prix réels + liste cochée, "Mangé" => stock déduit FIFO, "Tout mangé comme prévu" pour la veille). "Annuler" dans les toasts plutôt que des confirmations.
 - **Préférences par paliers** : `prefs.ing[id]` et `prefs.recipe[id]` = `refuge | ok | doux | nogo`. No-go masqué partout. Les épices sont des ingrédients `cat: 'epice'`.
@@ -57,6 +57,12 @@ js/
 - Les logos officiels des marques ne sont pas utilisés (droits) : pastilles colorées par type de marque (`BrandPill`).
 - Ticket : noms nettoyés (`prettyName` : sans grammage, abréviations développées, accents), grammage à part. Boissons, snacks (chips, sodas, eau, alcool) et non-alimentaire sont « ignorés » : comptés dans le budget, pas rangés, réactivables dans la liste repliée en bas de l'aperçu. Mémoire par `ticketKey` dans `customProducts`.
 - Scan d'un produit (stock ou aperçu de ticket) : `enrichFromScan` met à jour la fiche (photo, nutrition, code-barres, grammage si même unité que l'aliment). Produit catalogue : `productOverrides[productId]` ; produit perso : modifié directement. Titres via `productTitle()`, grammage via `productSize()`.
+
+- Foyer : `profile.household = { adults, kids }` (enfant = 0,6 part). `cookLines()` = ta portion + celles du foyer, utilisé pour le stock déduit et les courses ; la jauge reste personnelle.
+- Régimes et allergies : `profile.diets` (clés de `js/data/diets.js`). `ingTier()` renvoie `nogo` pour un aliment exclu ; pour un régime, l'aliment vedette (viande, poisson, 1er ingrédient, cité dans le nom) n'est jamais remplacé : la recette est masquée.
+- Priorités : `profile.priorities` (equilibre, budget, antigaspi, rapide, proteine) pondèrent `suggest()`.
+- Rappels : `profile.reminders`, `js/lib/reminders.js` (message à l'ouverture) et `periodicsync` dans `sw.js` sur une copie dans le cache `cocotte-rappels` (garder les deux logiques alignées).
+- Produits à acheter : « Je l'ai » (choix du vrai produit, rangé en stock) et « Pas besoin » écrivent `needsSkip[ing] = dernier jour de la semaine`.
 
 ### Invariants
 

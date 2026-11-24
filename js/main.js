@@ -6,6 +6,7 @@ import { ShoppingView } from './views/ShoppingView.js';
 import { RecipesView } from './views/RecipesView.js';
 import { ProfileView } from './views/ProfileView.js';
 import { Onboarding } from './views/Onboarding.js';
+import { Tutorial } from './components/Tutorial.js';
 import { dlcInfo } from './lib/dates.js';
 
 const TABS = [
@@ -26,6 +27,7 @@ function App() {
   const go = (id) => { if (id !== tab.id) { setTab(id); history.pushState({ tab: id }, ''); window.scrollTo({ top: 0 }); } };
   return html`<div class="app">
     <${tab.View} />
+    ${s.ui.tutorial && html`<${Tutorial} />`}
     <${Toasts} />
     <${ConfirmHost} />
     <nav class="bottom-nav" aria-label="Navigation principale">
@@ -39,6 +41,8 @@ function App() {
 }
 
 if (new URLSearchParams(location.search).has('share')) setTab('shop', { shopTab: 'list' });
+{ const qt = new URLSearchParams(location.search).get('tab'); if (['week', 'shop', 'recipes', 'profile'].includes(qt)) { setTab(qt); history.replaceState(null, '', location.pathname); } }
+navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.type === 'open-tab') setTab(e.data.tab); });
 // Ancien lien de remise à zéro : désactivé, car Android rouvre une app tuée
 // avec son lien d'origine et relançait la remise à zéro.
 if (new URLSearchParams(location.search).has('vider-stock')) history.replaceState(null, '', location.pathname);
@@ -46,4 +50,5 @@ history.replaceState({ tab: getState().ui.tab || 'week' }, '');
 addEventListener('cocotte-back', (e) => { const t = e.detail?.tab; if (t) { setTab(t); window.scrollTo({ top: 0 }); } });
 render(html`<${App} />`, document.getElementById('app'));
 import('./actions.js').then((a) => { a.relinkLegacy(); a.relinkLegacyV3(); a.keepPastPortionsV1(); });
+import('./lib/reminders.js').then((r) => r.startReminders());
 document.documentElement.classList.add('ready');

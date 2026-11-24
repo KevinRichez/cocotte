@@ -63,8 +63,8 @@ export function ProductRow({ s, p, onClick, right }) {
   </button>`;
 }
 
-export function ProductSearch({ s, onPick, placeholder = 'Rechercher un produit', autoFocus = true, autoScan = false }) {
-  const [q, setQ] = useState('');
+export function ProductSearch({ s, onPick, placeholder = 'Rechercher un produit', autoFocus = true, autoScan = false, initial = '' }) {
+  const [q, setQ] = useState(initial);
   const [online, setOnline] = useState({ q: '', list: [], loading: false, error: null });
   const [scanning, setScanning] = useState(autoScan);
   const [creating, setCreating] = useState(null);

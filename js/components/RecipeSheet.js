@@ -8,6 +8,7 @@ import { today, addDays, dayShort, dayNum, relDay } from '../lib/dates.js';
 import {
   recipeLines, nutrition, linesCost, stockQty, swapOptions, budgetLevel, budgetLabel, euro, kcalFmt, nextFreeSlot,
   getRecipe, recipeTier, ingTier, canCook, slotBudget, servingsFor, refProduct, photoFor, productTitle, fmtPortion, stockSubstitute, linkCandidates, pastStock, cleanName, nextMainSlot, autoSwaps, removedIngs, blockReason,
+  householdFactor, householdLabel, showNumbers,
 } from '../lib/engine.js';
 import { planRecipe, addIngsToList, setTier, deleteRecipe, relinkStockItem, setSlotServings, planLeftover } from '../actions.js';
 import { confirmAction } from '../lib/confirm.js';
@@ -21,6 +22,7 @@ export function RecipeSheet({ recipeId, onClose, target, slot: slotCtx }) {
   const [picking, setPicking] = useState(false);
   const [pick, setPick] = useState(null);
   const [editing, setEditing] = useState(false);
+  const [forHome, setForHome] = useState(true);
 
   useEffect(() => {
     setSwapIdx(null); setPicking(false); setEditing(false);
@@ -35,7 +37,9 @@ export function RecipeSheet({ recipeId, onClose, target, slot: slotCtx }) {
   }, [recipeId]);
 
   const slotOver = slotCtx && s.plan[slotCtx.date]?.[slotCtx.meal]?.recipeId === recipeId ? s.plan[slotCtx.date][slotCtx.meal].over : null;
-  const lines = useMemo(() => (r ? recipeLines(r, swaps, servings, slotOver) : []), [r, swaps, servings, slotOver]);
+  const hh = householdFactor(s);
+  const cookFor = forHome && hh > 1 ? servings + hh - 1 : servings;
+  const lines = useMemo(() => (r ? recipeLines(r, swaps, cookFor, slotOver) : []), [r, swaps, cookFor, slotOver]);
   if (!r) return null;
   const base = recipeLines(r, swaps);
   const per = nutrition(base, s);
@@ -46,6 +50,15 @@ export function RecipeSheet({ recipeId, onClose, target, slot: slotCtx }) {
   const confirm = () => { planRecipe(pick.date, pick.meal, r.id, swaps, servings); onClose(); };
   const changeServings = (v) => { setServings(v); if (plannedHere) setSlotServings(plannedHere.date, plannedHere.meal, v); };
   const nextSlot = plannedHere && nextMainSlot(plannedHere.date, plannedHere.meal);
+  // 2 portions sur un repas : on propose d'en garder une pour un autre repas (1 portion + 1 reste)
+  const doubleTargets = plannedHere && (plannedHere.meal === 'dej' || plannedHere.meal === 'diner') ? [
+    plannedHere.meal === 'dej' && { date: plannedHere.date, meal: 'diner', label: 'Ce soir' },
+    { date: addDays(plannedHere.date, 1), meal: 'dej', label: 'Demain midi' },
+    { date: addDays(plannedHere.date, 1), meal: 'diner', label: 'Demain soir' },
+  ].filter(Boolean) : [];
+  const hasLeftover = doubleTargets.some((x) => { const sl = s.plan[x.date]?.[x.meal]; return sl?.leftover && sl.recipeId === r.id; });
+  const splitDouble = (to) => { setServings(Math.max(1, servings - 1)); setSlotServings(plannedHere.date, plannedHere.meal, Math.max(1, servings - 1)); planLeftover(plannedHere.date, plannedHere.meal, to); };
+  const nums = showNumbers(s);
   const days = Array.from({ length: 7 }, (_, i) => addDays(today(), i));
 
   const footer = picking
@@ -88,18 +101,27 @@ export function RecipeSheet({ recipeId, onClose, target, slot: slotCtx }) {
       ${r.prep != null || r.cook != null
         ? html`<div class="stat"><b>${r.prep || 0} + ${r.cook || 0} min</b><span>Prépa + cuisson</span></div>`
         : html`<div class="stat"><b>${r.time} min</b><span>Temps</span></div>`}
-      <div class="stat"><b>${kcalFmt(per.kcal)}</b><span>kcal / pers.</span></div>
-      <div class="stat"><b>${Math.round(per.prot)} g</b><span>Protéines</span></div>
+      ${nums && html`<div class="stat"><b>${kcalFmt(per.kcal)}</b><span>kcal / pers.</span></div>
+      <div class="stat"><b>${Math.round(per.prot)} g</b><span>Protéines</span></div>`}
       <div class="stat"><b>${budgetLabel(budgetLevel(cost))}</b><span>${euro(cost)}</span></div>
     </div>
     <div class="chips" style="margin-bottom:6px">${r.equipment.map((e) => html`<span class="badge neutral" style="height:28px">${EQUIPMENT[e]?.emoji} ${EQUIPMENT[e]?.label}</span>`)}</div>
 
-    ${servings !== 1 && s.profile.autoPortions && !plannedHere && html`<div class="card tint-sage small" style="margin-top:4px">Pour ton objectif : <b>${fmtPortion(servings)}</b>, soit ${kcalFmt(per.kcal * servings)} kcal pour ce repas. C’est une seule portion, ${servings > 1 ? 'un peu plus grande' : 'un peu plus petite'} que la normale. Modifiable ci-dessous.</div>`}
+    ${servings !== 1 && s.profile.autoPortions && !plannedHere && html`<div class="card tint-sage small" style="margin-top:4px">Pour ton objectif : <b>${fmtPortion(servings)}</b>${nums ? `, soit ${kcalFmt(per.kcal * servings)} kcal pour ce repas` : ''}. C’est une seule portion, ${servings > 1 ? 'un peu plus grande' : 'un peu plus petite'} que la normale. Modifiable ci-dessous.</div>`}
     ${blockReason(s, r, swaps) && html`<div class="card tint-slate small" style="margin-top:4px">Recette habituellement masquée : ${blockReason(s, r, swaps).label.toLowerCase()}.</div>`}
-    ${removedIngs(r, swaps).length > 0 && html`<div class="subtle small" style="margin:8px 2px 0">Sans ${removedIngs(r, swaps).map((i) => ING[i].name.toLowerCase()).join(', ')} (tes no-go)</div>`}
+    ${removedIngs(r, swaps).length > 0 && html`<div class="subtle small" style="margin:8px 2px 0">Sans ${removedIngs(r, swaps).map((i) => ING[i].name.toLowerCase()).join(', ')} (${s.profile.diets?.length ? 'ton régime ou tes no-go' : 'tes no-go'})</div>`}
     <div class="section-title"><div class="h2">Ingrédients</div>
       <${Stepper} value=${servings} min=${0.25} max=${12} step=${0.25} onChange=${changeServings} format=${fmtPortion} />
     </div>
+    ${plannedHere && servings >= 2 && doubleTargets.length > 0 && !hasLeftover && html`<div class="card tint-sage small" style="margin-bottom:10px">
+      <b>Tu en fais pour un autre repas ?</b>
+      <div class="subtle xs" style="margin:2px 0 8px">Tu gardes 1 portion maintenant et le reste va au frigo : ta journée ne compte que ce que tu manges.</div>
+      <div class="chips">${doubleTargets.map((x) => html`<${Chip} sm onClick=${() => splitDouble(x)}>${x.label}</${Chip}>`)}</div>
+    </div>`}
+    ${hh > 1 && html`<div class="chips" style="margin-bottom:8px">
+      <${Chip} sm active=${forHome} onClick=${() => setForHome(true)}>À cuisiner : ${householdLabel(s.profile.household).toLowerCase()}</${Chip}>
+      <${Chip} sm active=${!forHome} onClick=${() => setForHome(false)}>Ma portion</${Chip}>
+    </div>`}
     <div class="list">
       ${lines.map((l) => {
         const ing = ING[l.ing];

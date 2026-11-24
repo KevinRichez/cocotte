@@ -7,7 +7,7 @@ import { RecipeEditor } from '../components/RecipeEditor.js';
 import { RecipeImport } from '../components/RecipeImport.js';
 import { MEALS, MEAL_KEYS, EQUIPMENT } from '../data/recipes.js';
 import { ING } from '../data/ingredients.js';
-import { recipeStats, stockMatch, isBlocked, budgetLevel, budgetLabel, kcalFmt, allRecipes, recipeTier, TIER_META, norm, euro, blockReason } from '../lib/engine.js';
+import { recipeStats, stockMatch, isBlocked, budgetLevel, budgetLabel, kcalFmt, allRecipes, recipeTier, TIER_META, norm, euro, blockReason, showNumbers } from '../lib/engine.js';
 
 const NO_FILTERS = { time: null, budget: null, stock: false, tier: null, mine: false, showBlocked: false };
 
@@ -86,7 +86,7 @@ export function RecipesView() {
           <div class="rname">${x.r.name}</div>
           <div class="meal-meta" style="margin-top:auto;padding-top:4px">
             <span><${Icon} name="clock" size=${12} />${x.r.time} min</span>
-            <span>${kcalFmt(x.kcal)} kcal</span>
+            ${showNumbers(s) && html`<span>${kcalFmt(x.kcal)} kcal</span>`}
             <span>${budgetLabel(x.budget)}</span>
           </div>
         </div>

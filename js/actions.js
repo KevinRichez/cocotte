@@ -4,7 +4,7 @@ import { MEALS, MEAL_KEYS, RECIPE } from './data/recipes.js';
 import { ING, guessIngredient, matchIngredientText } from './data/ingredients.js';
 import { today, relDay, addDays } from './lib/dates.js';
 import {
-  uid, recipeLines, consumeLines, restoreTaken, nextMainSlot, batchIngOf, equivOf, autoSwaps, slotLines, batchOver, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
+  uid, recipeLines, consumeLines, restoreTaken, nextMainSlot, batchIngOf, equivOf, autoSwaps, slotLines, cookLines, batchOver, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
   listItemInfo, listTotal, euro, getProduct, getRecipe, defaultProductFor, slotKcal, isSlotPast,
 } from './lib/engine.js';
 
@@ -50,7 +50,7 @@ function eatInDraft(d, date, meal) {
   }
   // Cuisson pour ce repas et ses restes : tout est déduit maintenant, les parts vont au frigo
   const rest = slot.leftover ? [] : leftoverSlotsOf(d, date, meal, r.id);
-  const lines = [slot, ...rest.map((x) => x.slot)].flatMap((sl) => slotLines(sl, r));
+  const lines = [slot, ...rest.map((x) => x.slot)].flatMap((sl) => cookLines(d, sl, r));
   slot.consumed = consumeLines(d, lines);
   slot.leftoverLots = rest.map((x) => {
     const id = uid();
@@ -586,9 +586,23 @@ export function keepPastPortionsV1() {
 }
 
 // « Je l'ai déjà » : un ingrédient de la semaine que l'app n'avait pas vu passe dans le stock
-export function haveIngredient(ing, qty) {
-  const prev = update((d) => { addToInventory(d, { ing, name: ING[ing].name, qty, dlc: estimateDlc(d, null, ing), location: ING[ing].storage }); });
-  undoable(prev, `${ING[ing].name} ajouté à ton stock`);
+// « Pas besoin » : l'aliment n'est plus proposé à l'achat cette semaine
+export function dismissNeed(ing, until) {
+  const prev = update((d) => { d.needsSkip = { ...(d.needsSkip || {}), [ing]: until }; });
+  undoable(prev, `${ING[ing].name} : plus proposé cette semaine`);
+}
+// « Je l'ai » : tu choisis le produit que tu as vraiment (même sous une autre forme),
+// il est rangé dans ton stock et l'aliment n'est plus proposé à l'achat cette semaine
+export function haveProduct(productId, needIng, until) {
+  const s = getState();
+  const p = getProduct(s, productId);
+  if (!p) return;
+  const ing = p.ing && ING[p.ing] ? p.ing : null;
+  const prev = update((d) => {
+    if (ing) addToInventory(d, { productId, ing, name: p.name, qty: p.size || (ING[ing].unit === 'pc' ? 1 : 100), unit: p.unit, dlc: estimateDlc(d, productId, ing), location: ING[ing].storage, nutri: p.nutri });
+    d.needsSkip = { ...(d.needsSkip || {}), [needIng]: until };
+  });
+  undoable(prev, ing ? `${p.name} rangé dans ton stock` : `${ING[needIng].name} : plus proposé cette semaine`);
 }
 export function addNeedsToList(items) {
   const prev = update((d) => {

@@ -5,6 +5,7 @@ import { STORES } from '../data/products.js';
 import { EQUIPMENT, COOKING_EQUIPMENT } from '../data/recipes.js';
 import { ING } from '../data/ingredients.js';
 import { targets, kcalFmt, GOAL_LABEL } from '../lib/engine.js';
+import { DIETS, DIET_KEYS, ALLERGY_KEYS } from '../data/diets.js';
 
 const ACTIVITY = [
   { v: 1.2, label: 'Plutôt assis', hint: 'Bureau, peu de marche' },
@@ -17,6 +18,19 @@ const GOALS = [
   { v: 'maintain', emoji: '⚖️', title: 'Garder mon poids', hint: 'Bien manger, régulièrement' },
   { v: 'lose', emoji: '🍃', title: 'Perdre du poids', hint: 'En douceur, sans frustration' },
 ];
+export const HOUSEHOLDS = [
+  { v: 'solo', emoji: '🙋', title: 'Pour moi', hint: 'Une seule personne', h: { adults: 1, kids: 0 } },
+  { v: 'duo', emoji: '👫', title: 'À deux', hint: 'En couple ou en colocation', h: { adults: 2, kids: 0 } },
+  { v: 'family', emoji: '👨‍👩‍👧', title: 'En famille', hint: 'Avec des enfants', h: { adults: 2, kids: 1 } },
+];
+export const householdKind = (h) => (!h || ((+h.adults || 1) <= 1 && !+h.kids) ? 'solo' : +h.kids ? 'family' : 'duo');
+export const PRIORITIES = [
+  { v: 'equilibre', emoji: '🥗', title: 'Manger équilibré', hint: 'Plus de légumes, de fruits et de légumineuses' },
+  { v: 'budget', emoji: '💶', title: 'Faire des économies', hint: 'Des recettes et des produits moins chers' },
+  { v: 'antigaspi', emoji: '♻️', title: 'Moins gaspiller', hint: 'Cuisiner d’abord ce que tu as déjà' },
+  { v: 'rapide', emoji: '⏱️', title: 'Cuisiner vite', hint: 'Des recettes de 20 min ou moins' },
+  { v: 'proteine', emoji: '💪', title: 'Plus de protéines', hint: 'Pour le sport ou la récupération' },
+];
 const TASTES = ['poulet', 'oeufs', 'pates', 'riz', 'steak15', 'fromage_blanc', 'skyr', 'saumon', 'thon', 'cotes_porc', 'jambon', 'tofu', 'lentilles', 'pois_chiches', 'champignons', 'brocoli', 'avocat', 'poivron', 'banane', 'lait', 'emmental', 'chevre'];
 
 export function Onboarding() {
@@ -28,6 +42,9 @@ export function Onboarding() {
   const [refuges, setRefuges] = useState(Object.keys(cur.prefs.ing).filter((k) => cur.prefs.ing[k] === 'refuge' && TASTES.includes(k)));
   const [nogo, setNogo] = useState(Object.keys(cur.prefs.ing).filter((k) => cur.prefs.ing[k] === 'nogo' && TASTES.includes(k)));
   const set = (patch) => setP({ ...p, ...patch });
+  const hh = p.household || { adults: 1, kids: 0 };
+  const kind = householdKind(hh);
+  const toggleIn = (key, v) => { const l = p[key] || []; set({ [key]: l.includes(v) ? l.filter((x) => x !== v) : [...l, v] }); };
   const t = targets(p);
   const toggle = (list, setList, id, other, setOther) => {
     setList(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
@@ -46,7 +63,7 @@ export function Onboarding() {
     for (const id of TASTES) if (next.prefs.ing[id] === 'refuge' || next.prefs.ing[id] === 'nogo') delete next.prefs.ing[id];
     refuges.forEach((id) => { next.prefs.ing[id] = 'refuge'; });
     nogo.forEach((id) => { next.prefs.ing[id] = 'nogo'; });
-    next.ui = { ...next.ui, tab: 'week' };
+    next.ui = { ...next.ui, tab: 'week', tutorial: !cur.profile.tutorialSeen };
     replaceState(next);
   };
 
@@ -84,9 +101,36 @@ export function Onboarding() {
           <span class=${`check ${p.activity === a.v ? 'on' : ''}`}><${Icon} name="check" size=${16} stroke=${3} /></span></button>`)}</div>
         <div class="ob-result">
           <span>${GOAL_LABEL[t.dir]}</span>
-          <b class="num">${kcalFmt(t.kcal)} kcal / jour</b>
-          <small>${t.prot} g de protéines · ajusté automatiquement si tu changes ton poids visé</small>
+          ${p.showNumbers !== false ? html`<b class="num">${kcalFmt(t.kcal)} kcal / jour</b>
+          <small>${t.prot} g de protéines · ajusté automatiquement si tu changes ton poids visé</small>` : html`<small>Tes repères sont calculés pour toi, sans chiffre affiché</small>`}
         </div>
+      </div>` },
+    { ok: true, body: html`<div>
+        <h1 class="ob-title">Pour qui tu cuisines ?</h1>
+        <p class="muted">Les quantités à cuisiner et la liste de courses s’adaptent au foyer. Ta jauge et ton objectif restent à toi.</p>
+        <div class="stack" style="margin-top:18px">${HOUSEHOLDS.map((x) => html`<button type="button" class=${`ob-card ${kind === x.v ? 'on' : ''}`} onClick=${() => set({ household: x.h })}>
+          <span class="ob-emoji">${x.emoji}</span><span class="grow"><b>${x.title}</b><small>${x.hint}</small></span>
+          <span class=${`check ${kind === x.v ? 'on' : ''}`}><${Icon} name="check" size=${16} stroke=${3} /></span></button>`)}</div>
+        ${kind !== 'solo' && html`<div class="card flat" style="margin-top:14px">
+          <div class="row between"><b class="small">Adultes (toi compris)</b><${Stepper} value=${hh.adults} min=${1} max=${8} onChange=${(v) => set({ household: { ...hh, adults: v } })} format=${(v) => `${v}`} /></div>
+          <div class="hr"></div>
+          <div class="row between"><b class="small">Enfants</b><${Stepper} value=${hh.kids} min=${0} max=${8} onChange=${(v) => set({ household: { ...hh, kids: v } })} format=${(v) => `${v}`} /></div>
+        </div>
+        <p class="subtle" style="margin-top:10px">Un enfant compte pour un peu plus d’une demi-portion.</p>`}
+      </div>` },
+    { ok: true, body: html`<div>
+        <h1 class="ob-title">Ce qui compte pour toi</h1>
+        <p class="muted">Choisis autant que tu veux : les idées de repas en tiennent compte.</p>
+        <div class="stack" style="margin-top:18px">${PRIORITIES.map((x) => { const on = (p.priorities || []).includes(x.v); return html`<button type="button" class=${`ob-card sm ${on ? 'on' : ''}`} onClick=${() => toggleIn('priorities', x.v)}>
+          <span class="ob-emoji">${x.emoji}</span><span class="grow"><b>${x.title}</b><small>${x.hint}</small></span>
+          <span class=${`check ${on ? 'on' : ''}`}><${Icon} name="check" size=${16} stroke=${3} /></span></button>`; })}</div>
+        <div class="label" style="margin-top:20px">Les chiffres (kcal, protéines)</div>
+        <div class="stack">
+          ${[[true, '🔢', 'Les afficher', 'Jauge chiffrée, kcal des repas et des recettes'], [false, '🙈', 'Les masquer', 'Tu vois juste si ta journée est complète, sans aucun chiffre']].map(([v, e, ti, hi]) => html`<button type="button" class=${`ob-card sm ${(p.showNumbers !== false) === v ? 'on' : ''}`} onClick=${() => set({ showNumbers: v })}>
+            <span class="ob-emoji">${e}</span><span class="grow"><b>${ti}</b><small>${hi}</small></span>
+            <span class=${`check ${(p.showNumbers !== false) === v ? 'on' : ''}`}><${Icon} name="check" size=${16} stroke=${3} /></span></button>`)}
+        </div>
+        <p class="subtle" style="margin-top:10px">Modifiable à tout moment dans ton profil.</p>
       </div>` },
     { ok: (p.stores || []).length > 0, body: html`<div>
         <h1 class="ob-title">Tes magasins</h1>
@@ -106,6 +150,15 @@ export function Onboarding() {
           return html`<button type="button" class=${`ob-store ${on ? 'on' : ''}`} onClick=${() => set({ equipment: on ? p.equipment.filter((x) => x !== k) : [...p.equipment, k] })}>
             <span>${EQUIPMENT[k].emoji}</span>${EQUIPMENT[k].label}${on && html`<${Icon} name="check" size=${16} stroke=${3} />`}</button>`;
         })}</div>
+      </div>` },
+    { ok: true, body: html`<div>
+        <h1 class="ob-title">Régime et allergies</h1>
+        <p class="muted">Facultatif. Les recettes qui ne te conviennent pas sont masquées, ou adaptées quand c’est un accompagnement.</p>
+        <div class="label" style="margin-top:18px">Je mange</div>
+        <div class="chips">${DIET_KEYS.map((k) => html`<${Chip} sm active=${(p.diets || []).includes(k)} onClick=${() => toggleIn('diets', k)}>${DIETS[k].emoji} ${DIETS[k].label}</${Chip}>`)}</div>
+        <div class="label" style="margin-top:18px">Allergies et intolérances</div>
+        <div class="chips">${ALLERGY_KEYS.map((k) => html`<${Chip} sm active=${(p.diets || []).includes(k)} onClick=${() => toggleIn('diets', k)}>${DIETS[k].emoji} ${DIETS[k].label}</${Chip}>`)}</div>
+        <p class="subtle" style="margin-top:12px">Cocotte t’aide à trier, mais vérifie toujours les étiquettes des produits en cas d’allergie.</p>
       </div>` },
     { ok: true, body: html`<div>
         <h1 class="ob-title">Tes goûts</h1>

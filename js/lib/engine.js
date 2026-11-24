@@ -2,6 +2,7 @@ import { ING, INGREDIENTS, SWAP_GROUPS, matchIngredientText } from '../data/ingr
 import { bank, bankProduct, bankForIng, STORES, TIERS } from '../data/products.js';
 import { RECIPES, RECIPE, MEAL_KEYS } from '../data/recipes.js';
 import { PRODUCE_PHOTOS } from '../data/produce.js';
+import { dietBlock } from '../data/diets.js';
 import { today, addDays, diffDays, weekDays, mondayOf, dlcInfo } from './dates.js';
 
 export const uid = () => (crypto.randomUUID ? crypto.randomUUID().slice(0, 13) : Math.random().toString(36).slice(2, 12));
@@ -21,7 +22,21 @@ export const TIER_META = {
   nogo: { label: 'No-go', emoji: '🚫', tone: 'mute', hint: 'Masqués partout.' },
 };
 export const TIER_KEYS = ['refuge', 'ok', 'doux', 'nogo'];
-export const ingTier = (s, id) => s.prefs.ing[id] || null;
+export const ingTier = (s, id) => (dietBlock(s.profile, id) ? 'nogo' : s.prefs.ing[id] || null);
+// Chiffres (kcal, protéines) affichés ou masqués selon le choix de la personne
+export const showNumbers = (s) => s.profile.showNumbers !== false;
+export const hasPriority = (s, k) => (s.profile.priorities || []).includes(k);
+// Foyer : 1 adulte = 1 part, 1 enfant = 0,6 part. La jauge et l'objectif restent personnels.
+export function householdFactor(s) {
+  const h = s.profile.household;
+  if (!h) return 1;
+  return Math.max(1, (+h.adults || 1) + (+h.kids || 0) * 0.6);
+}
+export function householdLabel(h) {
+  if (!h || ((+h.adults || 1) <= 1 && !+h.kids)) return 'Pour moi';
+  const a = +h.adults || 1, k = +h.kids || 0;
+  return [`${a} adulte${a > 1 ? 's' : ''}`, k ? `${k} enfant${k > 1 ? 's' : ''}` : null].filter(Boolean).join(', ');
+}
 export const recipeTier = (s, id) => s.prefs.recipe[id] || null;
 
 export function targets(p) {
@@ -221,13 +236,25 @@ export function canCook(s, recipe) {
 }
 // Un no-go en accompagnement est retiré (« sans maïs ») ou remplacé, au lieu de masquer toute la recette
 const SIDE_CATS = new Set(['legume', 'fruit', 'sale', 'epice', 'fromage', 'sucre', 'laitier']);
+function isFeatured(recipe, line, idx) {
+  const ing = ING[line.ing];
+  if (idx === 0 || ing.cat === 'viande' || ing.cat === 'poisson') return true;
+  const word = norm(ing.name).split(/[ ,']/).find((w) => w.length > 3);
+  return !!word && norm(recipe.name).includes(word.slice(0, 4));
+}
 export function autoSwaps(s, recipe) {
   const out = {};
   recipe.ingredients.filter((l) => ING[l.ing]).forEach((line, idx) => {
     if (ingTier(s, line.ing) !== 'nogo') return;
     const alt = swapOptions(line, s).find((id) => id !== line.ing && ingTier(s, id) !== 'nogo');
+    // Un régime ou une allergie : on remplace, mais on ne retire que les assaisonnements
+    // (sinon le bol de céréales perdrait son lait, le croque son fromage...)
+    const diet = dietBlock(s.profile, line.ing);
+    // Pour un régime, l'aliment vedette (viande, poisson, premier ingrédient ou cité dans le nom) n'est pas
+    // remplacé : la recette est masquée plutôt que de garder « Côte de porc » avec du tofu
+    if (diet && isFeatured(recipe, line, idx)) return;
     if (alt) out[idx] = alt;
-    else if (SIDE_CATS.has(ING[line.ing].cat) && idx > 0) out[idx] = '-';
+    else if (idx > 0 && (diet ? ['epice', 'sale'].includes(ING[line.ing].cat) : SIDE_CATS.has(ING[line.ing].cat))) out[idx] = '-';
   });
   return out;
 }
@@ -245,7 +272,11 @@ export function blockReason(s, recipe, swaps) {
   }
   const sw = swaps && Object.keys(swaps).length ? swaps : autoSwaps(s, recipe);
   const bad = recipeLines(recipe, sw).find((l) => ingTier(s, l.ing) === 'nogo');
-  return bad ? { type: 'nogo', label: `Contient un de tes no-go : ${ING[bad.ing].name.toLowerCase()}` } : null;
+  if (!bad) return null;
+  const diet = dietBlock(s.profile, bad.ing);
+  return diet
+    ? { type: 'diet', label: `${diet.kind === 'allergy' ? 'Allergie' : 'Régime'} ${diet.label.toLowerCase()} : contient ${ING[bad.ing].name.toLowerCase()}` }
+    : { type: 'nogo', label: `Contient un de tes no-go : ${ING[bad.ing].name.toLowerCase()}` };
 }
 export const visibleRecipes = (s) => allRecipes(s).filter((r) => !isBlocked(s, r));
 
@@ -441,6 +472,12 @@ export function suggest(s, { meal, date, n = 3, exclude = [], budget: forced }) 
       }
       score -= weekIds.filter((id) => id === r.id).length * 2.2;
       score += r.time <= 15 ? 0.4 : 0;
+      // Priorités choisies à l'accueil (modifiables dans le profil)
+      if (hasPriority(s, 'rapide') && r.time <= 20) { score += 1.2; if (reasons.length < 2) reasons.push({ label: 'Rapide', tone: 'sage' }); }
+      if (hasPriority(s, 'budget')) { const c = linesCost(s, lines); score += c < 1.5 ? 1.4 : c < 2.5 ? 0.5 : -0.6; if (c < 1.5 && reasons.length < 2) reasons.push({ label: 'Petit budget', tone: 'sage' }); }
+      if (hasPriority(s, 'antigaspi')) score += match.ratio * 2 + anti.length * 2;
+      if (hasPriority(s, 'equilibre')) { const veg = lines.filter((l) => ['legume', 'fruit', 'vegetal'].includes(ING[l.ing].cat)).length; score += Math.min(veg, 3) * 0.6; if (veg >= 2 && reasons.length < 2) reasons.push({ label: 'Équilibré', tone: 'sage' }); }
+      if (hasPriority(s, 'proteine')) score += (base.prot / Math.max(base.kcal, 1)) * 20;
       return { recipe: r, score, reasons: reasons.slice(0, 2), match, servings, kcal: base.kcal * servings, prot: base.prot * servings };
     })
     .sort((a, b) => b.score - a.score)
@@ -455,7 +492,7 @@ export function compileNeeds(s, dates) {
       const r = slot && getRecipe(s, slot.recipeId);
       if (!slot || slot.status !== 'planned' || !r) continue;
       if (slot.leftover && leftoverLotFor(s, date, meal)) continue;
-      for (const l of slotLines(slot, r)) need[l.ing] = (need[l.ing] || 0) + l.qty;
+      for (const l of cookLines(s, slot, r)) need[l.ing] = (need[l.ing] || 0) + l.qty;
     }
   }
   const out = [];
@@ -515,6 +552,12 @@ export function slotKcal(s, slot) {
   return r ? nutrition(slotLines(slot, r), s) : { kcal: 0, prot: 0 };
 }
 export const slotLines = (slot, r) => recipeLines(slot.fullPortion && r.baseIngredients ? { ...r, ingredients: r.baseIngredients } : r, slot.swaps, slot.servings || 1, slot.over);
+// Ce qu'on cuisine vraiment : ta portion + celles du foyer (stock et courses)
+export const cookLines = (s, slot, r) => {
+  const f = householdFactor(s);
+  if (f <= 1) return slotLines(slot, r);
+  return recipeLines(slot.fullPortion && r.baseIngredients ? { ...r, ingredients: r.baseIngredients } : r, slot.swaps, (slot.servings || 1) + f - 1, slot.over);
+};
 
 // « J'ai mangé en plus » : n'importe quel aliment, kcal calculées depuis l'aliment ou la nutrition du produit
 export function extraNutrition(s, x) {

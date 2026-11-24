@@ -10,7 +10,9 @@ export const DEFAULT_EQUIPMENT = ['plaques', 'poele', 'casserole', 'four', 'micr
 export function defaultProfile() {
   return {
     onboarded: false, sex: 'x', age: 25, height: 170, weight: 60, weightGoal: 60, activity: 1.4, pace: 'doux',
-    stores: ['leclerc'], equipment: [...DEFAULT_EQUIPMENT], storeMode: false, weekStart: 6, autoPortions: false, weekStart: 6,
+    stores: ['leclerc'], equipment: [...DEFAULT_EQUIPMENT], storeMode: false, weekStart: 6, autoPortions: false,
+    household: { adults: 1, kids: 0 }, diets: [], priorities: [], showNumbers: true,
+    reminders: { shopping: true, shoppingHour: 10, dlc: true, meals: true, mealsHour: 21 },
   };
 }
 

@@ -7,11 +7,14 @@ import { ING, INGREDIENTS, CATEGORIES, fmtQty } from '../data/ingredients.js';
 import { STORES, storeLabel, packLabel } from '../data/products.js';
 import { EQUIPMENT, COOKING_EQUIPMENT } from '../data/recipes.js';
 import { dlcInfo, fmtShort, addDays, today } from '../lib/dates.js';
-import { kcalFmt, targets, GOAL_LABEL, getProduct, estimateDlc, TIER_META, TIER_KEYS, allRecipes, norm, cleanName, productTitle, productSize } from '../lib/engine.js';
+import { kcalFmt, targets, GOAL_LABEL, getProduct, estimateDlc, TIER_META, TIER_KEYS, allRecipes, norm, cleanName, productTitle, productSize, showNumbers, householdLabel } from '../lib/engine.js';
 import { addStock, updateStockItem, removeStockItem, setTier, setProfile, enrichFromScan, resetStockAndHistory, restockCandidates, restockProducts, relinkStockItem, setProductSize, updateProduct, deleteProduct } from '../actions.js';
 import { toast } from '../lib/toast.js';
 import { confirmAction } from '../lib/confirm.js';
 import { PRODUCE_CREDITS } from '../data/produce.js';
+import { DIETS, DIET_KEYS, ALLERGY_KEYS } from '../data/diets.js';
+import { HOUSEHOLDS, householdKind, PRIORITIES } from './Onboarding.js';
+import { enableNotifications, notificationState } from '../lib/reminders.js';
 
 export function ProfileView() {
   const s = useStore();
@@ -29,7 +32,7 @@ export function ProfileView() {
         <span class="thumb" style="background:#fff">${t.dir === 'gain' ? '🌱' : t.dir === 'lose' ? '🍃' : '⚖️'}</span>
         <div class="grow">
           <div class="strong">${GOAL_LABEL[t.dir]}</div>
-          <div class="subtle">${fmtKg(s.profile.weight)} → ${fmtKg(s.profile.weightGoal)} · ${kcalFmt(t.kcal)} kcal/j · ${t.prot} g prot.</div>
+          <div class="subtle">${fmtKg(s.profile.weight)} → ${fmtKg(s.profile.weightGoal)}${showNumbers(s) ? ` · ${kcalFmt(t.kcal)} kcal/j · ${t.prot} g prot.` : ''}</div>
         </div>
         <${Icon} name="chevR" size=${18} class="muted" />
       </div>
@@ -463,6 +466,9 @@ function SettingsSheet({ open, onClose, s }) {
       </div>
     </div>
 
+    <${RemindersBlock} s=${s} />
+    <button type="button" class="btn ghost sm block" style="margin-top:12px" onClick=${() => { onClose(); update((d) => { d.ui.tutorial = true; }); }}><${Icon} name="sparkles" size=${15} />Revoir les premiers pas</button>
+
     <div class="card flat" style="margin-top:12px">
       <b class="small">Mes données</b>
       <div class="subtle xs" style="margin:2px 0 10px">Tout est stocké sur ton téléphone. Les recherches de produits en ligne passent par Open Food Facts.</div>
@@ -495,8 +501,8 @@ function ProfileSheet({ open, onClose, s }) {
     footer=${html`<button type="button" class="btn primary block" onClick=${onClose}>OK</button>`}>
     <div class="ob-result" style="margin-top:0">
       <span>${GOAL_LABEL[t.dir]}</span>
-      <b class="num">${kcalFmt(t.kcal)} kcal / jour</b>
-      <small>${t.prot} g de protéines · se recalcule tout seul</small>
+      ${showNumbers(s) ? html`<b class="num">${kcalFmt(t.kcal)} kcal / jour</b>
+      <small>${t.prot} g de protéines · se recalcule tout seul</small>` : html`<small>Tes repères se recalculent tout seuls, sans chiffre affiché</small>`}
     </div>
     <div class="card flat" style="margin-top:12px">
       <div class="row between"><b class="small">Poids actuel</b><${Stepper} value=${p.weight} min=${30} max=${250} step=${0.5} onChange=${(v) => setProfile({ weight: v })} format=${fmtKg} /></div>
@@ -526,5 +532,68 @@ function ProfileSheet({ open, onClose, s }) {
       const on = p.equipment.includes(k);
       return html`<${Chip} sm active=${on} onClick=${() => setProfile({ equipment: on ? p.equipment.filter((x) => x !== k) : [...p.equipment, k] })}>${EQUIPMENT[k].emoji} ${EQUIPMENT[k].label}</${Chip}>`;
     })}</div>
+    <${HouseholdBlock} p=${p} />
+    <div class="label" style="margin-top:14px">Régime</div>
+    <div class="chips">${DIET_KEYS.map((k) => html`<${Chip} sm active=${(p.diets || []).includes(k)} onClick=${() => toggleProfileList(p, 'diets', k)}>${DIETS[k].emoji} ${DIETS[k].label}</${Chip}>`)}</div>
+    <div class="label" style="margin-top:14px">Allergies et intolérances</div>
+    <div class="chips">${ALLERGY_KEYS.map((k) => html`<${Chip} sm active=${(p.diets || []).includes(k)} onClick=${() => toggleProfileList(p, 'diets', k)}>${DIETS[k].emoji} ${DIETS[k].label}</${Chip}>`)}</div>
+    <div class="subtle xs" style="margin:6px 2px 0">Les recettes concernées sont masquées ou adaptées. Vérifie toujours les étiquettes en cas d’allergie.</div>
+    <div class="label" style="margin-top:14px">Ce qui compte pour moi</div>
+    <div class="chips">${PRIORITIES.map((x) => html`<${Chip} sm active=${(p.priorities || []).includes(x.v)} onClick=${() => toggleProfileList(p, 'priorities', x.v)}>${x.emoji} ${x.title}</${Chip}>`)}</div>
+    <div class="card flat" style="margin-top:14px">
+      <div class="row between" style="gap:12px">
+        <div><b class="small">Afficher les chiffres</b>
+          <div class="subtle xs">kcal et protéines. Masqués : la jauge montre juste si ta journée est complète.</div></div>
+        <${Chip} sm active=${p.showNumbers !== false} onClick=${() => setProfile({ showNumbers: p.showNumbers === false })}>${p.showNumbers !== false ? 'Oui' : 'Non'}</${Chip}>
+      </div>
+    </div>
   </${Sheet}>`;
+}
+
+const toggleProfileList = (p, key, v) => { const l = p[key] || []; setProfile({ [key]: l.includes(v) ? l.filter((x) => x !== v) : [...l, v] }); };
+
+function HouseholdBlock({ p }) {
+  const hh = p.household || { adults: 1, kids: 0 };
+  const kind = householdKind(hh);
+  return html`<div>
+    <div class="label" style="margin-top:14px">Je cuisine pour</div>
+    <div class="chips">${HOUSEHOLDS.map((x) => html`<${Chip} sm active=${kind === x.v} onClick=${() => setProfile({ household: x.h })}>${x.emoji} ${x.title}</${Chip}>`)}</div>
+    ${kind !== 'solo' && html`<div class="card flat" style="margin-top:10px">
+      <div class="row between"><b class="small">Adultes (toi compris)</b><${Stepper} value=${hh.adults} min=${1} max=${8} onChange=${(v) => setProfile({ household: { ...hh, adults: v } })} format=${(v) => `${v}`} /></div>
+      <div class="hr"></div>
+      <div class="row between"><b class="small">Enfants</b><${Stepper} value=${hh.kids} min=${0} max=${8} onChange=${(v) => setProfile({ household: { ...hh, kids: v } })} format=${(v) => `${v}`} /></div>
+    </div>
+    <div class="subtle xs" style="margin:6px 2px 0">Quantités à cuisiner, stock et courses pour ${householdLabel(hh).toLowerCase()}. Ta jauge reste personnelle.</div>`}
+  </div>`;
+}
+
+const HOURS = { shoppingHour: [9, 10, 14, 18], mealsHour: [20, 21, 22] };
+function RemindersBlock({ s }) {
+  const r = s.profile.reminders || {};
+  const [perm, setPerm] = useState(notificationState());
+  const set = (patch) => setProfile({ reminders: { ...r, ...patch } });
+  const row = (key, title, hint, hourKey) => html`<div>
+    <div class="row between" style="gap:12px">
+      <div><b class="small">${title}</b><div class="subtle xs">${hint}</div></div>
+      <${Chip} sm active=${!!r[key]} onClick=${() => set({ [key]: !r[key] })}>${r[key] ? 'Oui' : 'Non'}</${Chip}>
+    </div>
+    ${hourKey && r[key] && html`<div class="chips" style="margin-top:8px">${HOURS[hourKey].map((h) => html`<${Chip} sm active=${(r[hourKey] ?? HOURS[hourKey][1]) === h} onClick=${() => set({ [hourKey]: h })}>${h} h</${Chip}>`)}</div>`}
+  </div>`;
+  return html`<div class="card flat" style="margin-top:12px">
+    <b class="small">Rappels</b>
+    <div class="subtle xs" style="margin:2px 0 12px">Des rappels doux, jamais insistants. Ils s’affichent quand tu ouvres l’app.</div>
+    ${row('shopping', 'Jour des courses', 'Le jour choisi plus haut, si ta liste n’est pas vide', 'shoppingHour')}
+    <div class="hr"></div>
+    ${row('dlc', 'Produits à cuisiner bientôt', 'Quand une date arrive aujourd’hui ou demain')}
+    <div class="hr"></div>
+    ${row('meals', 'Valider ma journée', 'Le soir, s’il reste des repas prévus', 'mealsHour')}
+    <div class="hr"></div>
+    ${perm === 'granted'
+      ? html`<div class="subtle xs">✓ Notifications du téléphone autorisées. Android les envoie quand il le permet (app installée sur l’écran d’accueil, environ une fois par jour).</div>`
+      : perm === 'unsupported'
+        ? html`<div class="subtle xs">Ce navigateur ne gère pas les notifications : les rappels s’affichent dans l’app.</div>`
+        : perm === 'denied'
+          ? html`<div class="subtle xs">Les notifications sont bloquées pour Cocotte : tu peux les réactiver dans les réglages du téléphone. Les rappels s’affichent quand même dans l’app.</div>`
+          : html`<button type="button" class="btn ghost sm" onClick=${async () => setPerm(await enableNotifications())}><${Icon} name="bell" size=${15} />Recevoir aussi des notifications</button>`}
+  </div>`;
 }

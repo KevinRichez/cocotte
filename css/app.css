@@ -488,3 +488,11 @@ textarea.steps-input { font-family: var(--font); font-size: 14px; min-height: 12
 
 #boot-error pre { margin: 0 0 10px; white-space: pre-wrap; font: 12px/1.4 ui-monospace, monospace; }
 #boot-error .btn { font-family: var(--font); }
+
+/* Premiers pas */
+.tuto { position: fixed; inset: 0; z-index: 90; background: rgba(23, 32, 28, .45); display: flex; align-items: flex-end; justify-content: center; padding: 16px 16px calc(16px + var(--safe-b)); animation: fade .2s ease; }
+.tuto-card { width: 100%; max-width: 440px; background: var(--surface); border-radius: var(--r-lg); padding: 28px 20px 18px; box-shadow: var(--shadow-lg); animation: fadeUp .28s var(--ease); }
+.tuto-emoji { width: 84px; height: 84px; margin: 0 auto 14px; border-radius: 26px; background: var(--sage-50); display: grid; place-items: center; font-size: 42px; }
+.tuto-dots { display: flex; justify-content: center; gap: 6px; margin: 18px 0 16px; }
+.tuto-dots i { width: 7px; height: 7px; border-radius: 99px; background: var(--slate-100); transition: width .2s var(--ease); }
+.tuto-dots i.on { width: 22px; background: var(--sage-600); }

@@ -46,25 +46,25 @@ export function Stepper({ value, onChange, min = 0, max = Infinity, step = 1, fo
   </div>`;
 }
 
-export function KcalGauge({ eaten, planned, target, compact }) {
+export function KcalGauge({ eaten, planned, target, compact, hideNumbers }) {
   const max = Math.max(target * 1.2, planned, 1);
   const pct = (v) => `${Math.min(100, (v / max) * 100)}%`;
   const reached = eaten >= target - 50;
   const plannedOk = planned >= target - 50;
   return html`<div class=${`gauge-wrap ${compact ? 'compact' : ''}`}>
     <div class="gauge-nums">
-      <div><span class="g-big num">${kcalFmt(eaten)}</span><span class="g-unit">/ ${kcalFmt(target)} kcal</span></div>
+      ${hideNumbers ? html`<div class="strong">Ta journée</div>` : html`<div><span class="g-big num">${kcalFmt(eaten)}</span><span class="g-unit">/ ${kcalFmt(target)} kcal</span></div>`}
       ${reached && html`<span class="badge sage"><${Icon} name="check" size=${12} />Atteint</span>`}
     </div>
-    <div class="gauge" role="img" aria-label=${`${kcalFmt(eaten)} kcal mangées, ${kcalFmt(planned)} prévues, repère ${kcalFmt(target)}`}>
+    <div class="gauge" role="img" aria-label=${hideNumbers ? 'Repas mangés et prévus de la journée' : `${kcalFmt(eaten)} kcal mangées, ${kcalFmt(planned)} prévues, repère ${kcalFmt(target)}`}>
       <i class="g-planned" style=${{ width: pct(planned) }}></i>
       <i class="g-eaten" style=${{ width: pct(eaten) }}></i>
       <span class="g-target" style=${{ left: pct(target) }}></span>
     </div>
     <div class="gauge-legend">
       <span><i class="dot-eaten"></i>Mangé</span>
-      <span><i class="dot-planned"></i>Avec le prévu : <b class="num">${kcalFmt(planned)}</b></span>
-      <span class=${plannedOk ? 'ok' : ''}>${plannedOk ? 'Objectif atteint' : `Manque ~${kcalFmt(target - planned)}`}</span>
+      <span><i class="dot-planned"></i>${hideNumbers ? 'Prévu' : html`Avec le prévu : <b class="num">${kcalFmt(planned)}</b>`}</span>
+      <span class=${plannedOk ? 'ok' : ''}>${plannedOk ? (hideNumbers ? 'Journée complète' : 'Objectif atteint') : hideNumbers ? 'Encore un peu de place' : `Manque ~${kcalFmt(target - planned)}`}</span>
     </div>
   </div>`;
 }

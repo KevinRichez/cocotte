@@ -91,6 +91,7 @@ function ActiveList({ s }) {
     <div class="row" style="gap:8px;margin-top:14px">
       <button type="button" class="btn primary grow" onClick=${() => setAdding(true)}><${Icon} name="plus" size=${18} />Ajouter un produit</button>
       ${items.length > 0 && html`<button type="button" class="btn outline" onClick=${() => checkAll(!allChecked)}><${Icon} name="checks" size=${18} />${allChecked ? 'Tout décocher' : 'Tout cocher'}</button>`}
+      ${items.some((x) => !x.checked) && html`<button type="button" class="btn outline" aria-label="Partager la liste" onClick=${() => shareList(s)}><${Icon} name="share" size=${18} /></button>`}
     </div>
 
     ${items.length === 0 && html`<${Empty} emoji="🧺" title="Ta liste est vide">Génère-la depuis « Ma semaine » ou ajoute des produits.</${Empty}>`}
@@ -440,4 +441,34 @@ function TicketSheet({ open, onClose, s, file }) {
         <pre class="subtle xs" style="white-space:pre-wrap">${parsed.ignored.join('\n')}</pre></details>`}
     </div>`}
   </${Sheet}>`;
+}
+
+// Partager la liste par message (WhatsApp, SMS…) : texte simple, rangé par magasin et par rayon
+function listText(s) {
+  const rows = s.shoppingList.filter((x) => !x.checked).map((it) => ({ it, info: listItemInfo(s, it) }));
+  const stores = [...new Set(rows.map((r) => r.info.store || 'autre'))];
+  const lines = ['🛒 Liste de courses', ''];
+  for (const st of stores) {
+    const inStore = rows.filter((r) => (r.info.store || 'autre') === st);
+    if (stores.length > 1) lines.push(`${STORES[st]?.name || 'Autres'}`.toUpperCase());
+    const aisles = [...new Set(inStore.map((r) => r.info.aisle))].sort((a, b) => AISLES.indexOf(a) - AISLES.indexOf(b));
+    for (const a of aisles) {
+      lines.push(`· ${a}`);
+      for (const { it, info } of inStore.filter((r) => r.info.aisle === a)) {
+        const size = info.prod && productSize(info.prod);
+        lines.push(`☐ ${it.qty > 1 ? `${it.qty} x ` : ''}${info.prod ? productTitle(info.prod) : info.name}${size ? ` (${size})` : ''}`);
+      }
+    }
+    lines.push('');
+  }
+  lines.push(`Total estimé : ${euro(listTotal(s, rows.map((r) => r.it)))}`);
+  return lines.join(String.fromCharCode(10));
+}
+async function shareList(s) {
+  const text = listText(s);
+  try {
+    if (navigator.share) { await navigator.share({ title: 'Liste de courses', text }); return; }
+  } catch (e) { if (e?.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(text); toast('Liste copiée : colle-la dans un message'); }
+  catch { toast('Partage impossible sur ce navigateur'); }
 }
