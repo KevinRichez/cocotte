@@ -16,6 +16,8 @@ function sanitize(s) {
   const dp = defaultProfile();
   if (!isObj(out.profile.household)) out.profile.household = dp.household;
   for (const k of ['diets', 'priorities']) if (!Array.isArray(out.profile[k])) out.profile[k] = [];
+  // Portions allégées : gardées pour qui les avait déjà (novembre 2026), sinon quantités normales
+  if (typeof s.profile?.light !== 'boolean') out.profile.light = !!s.flags?.lightV1;
   out.profile.reminders = { ...dp.reminders, ...(isObj(out.profile.reminders) ? out.profile.reminders : {}) };
   out.prefs = { ing: isObj(s.prefs?.ing) ? s.prefs.ing : {}, recipe: isObj(s.prefs?.recipe) ? s.prefs.recipe : {} };
   for (const k of ['inventory', 'deferred', 'shoppingList', 'history', 'customProducts', 'customRecipes']) out[k] = arr(s[k]).filter(isObj);

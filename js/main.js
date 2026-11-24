@@ -49,6 +49,6 @@ if (new URLSearchParams(location.search).has('vider-stock')) history.replaceStat
 history.replaceState({ tab: getState().ui.tab || 'week' }, '');
 addEventListener('cocotte-back', (e) => { const t = e.detail?.tab; if (t) { setTab(t); window.scrollTo({ top: 0 }); } });
 render(html`<${App} />`, document.getElementById('app'));
-import('./actions.js').then((a) => { a.relinkLegacy(); a.relinkLegacyV3(); a.keepPastPortionsV1(); });
+import('./actions.js').then((a) => { a.relinkLegacy(); a.relinkLegacyV3(); a.keepPastPortionsV1(); a.freezeReviewV2(); });
 import('./lib/reminders.js').then((r) => r.startReminders());
 document.documentElement.classList.add('ready');

@@ -58,6 +58,9 @@ js/
 - Ticket : noms nettoyés (`prettyName` : sans grammage, abréviations développées, accents), grammage à part. Boissons, snacks (chips, sodas, eau, alcool) et non-alimentaire sont « ignorés » : comptés dans le budget, pas rangés, réactivables dans la liste repliée en bas de l'aperçu. Mémoire par `ticketKey` dans `customProducts`.
 - Scan d'un produit (stock ou aperçu de ticket) : `enrichFromScan` met à jour la fiche (photo, nutrition, code-barres, grammage si même unité que l'aliment). Produit catalogue : `productOverrides[productId]` ; produit perso : modifié directement. Titres via `productTitle()`, grammage via `productSize()`.
 
+- Portions allégées : réglage personnel `profile.light` (~75 %, `LIGHT_RECIPES` dans recipes.js). `getRecipe`/`allRecipes` renvoient la version allégée si actif ; `cookLines` ajoute les parts du foyer en quantités normales. Les profils existants avant v30 avec `flags.lightV1` l'ont activé.
+- Relecture nutrition : `REVIEW_V2` (quantités normales revues selon PNNS / ANSES, légumes ajoutés en fin de liste pour tous). Les portions allégées gardent les quantités d'avant. `freezeReviewV2` met `over[idx] = 0` sur les légumes ajoutés des repas passés ; `over === 0` retire la ligne.
+- `planRecipe` : le même plat qu'au repas principal d'avant devient automatiquement un reste (`planLeftover`).
 - Foyer : `profile.household = { adults, kids }` (enfant = 0,6 part). `cookLines()` = ta portion + celles du foyer, utilisé pour le stock déduit et les courses ; la jauge reste personnelle.
 - Régimes et allergies : `profile.diets` (clés de `js/data/diets.js`). `ingTier()` renvoie `nogo` pour un aliment exclu ; pour un régime, l'aliment vedette (viande, poisson, 1er ingrédient, cité dans le nom) n'est jamais remplacé : la recette est masquée.
 - Priorités : `profile.priorities` (equilibre, budget, antigaspi, rapide, proteine) pondèrent `suggest()`.

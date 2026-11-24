@@ -546,6 +546,12 @@ function ProfileSheet({ open, onClose, s }) {
           <div class="subtle xs">kcal et protéines. Masqués : la jauge montre juste si ta journée est complète.</div></div>
         <${Chip} sm active=${p.showNumbers !== false} onClick=${() => setProfile({ showNumbers: p.showNumbers === false })}>${p.showNumbers !== false ? 'Oui' : 'Non'}</${Chip}>
       </div>
+      <div class="hr"></div>
+      <div class="row between" style="gap:12px">
+        <div><b class="small">Portions allégées</b>
+          <div class="subtle xs">Environ 25 % en moins sur ta portion. Les parts du foyer restent normales.</div></div>
+        <${Chip} sm active=${!!p.light} onClick=${() => setProfile({ light: !p.light })}>${p.light ? 'Oui' : 'Non'}</${Chip}>
+      </div>
     </div>
   </${Sheet}>`;
 }

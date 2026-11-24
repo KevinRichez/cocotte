@@ -1,6 +1,6 @@
 import { ING, INGREDIENTS, SWAP_GROUPS, matchIngredientText } from '../data/ingredients.js';
 import { bank, bankProduct, bankForIng, STORES, TIERS } from '../data/products.js';
-import { RECIPES, RECIPE, MEAL_KEYS } from '../data/recipes.js';
+import { RECIPES, RECIPE, LIGHT_RECIPES, LIGHT_RECIPE, MEAL_KEYS } from '../data/recipes.js';
 import { PRODUCE_PHOTOS } from '../data/produce.js';
 import { dietBlock } from '../data/diets.js';
 import { today, addDays, diffDays, weekDays, mondayOf, dlcInfo } from './dates.js';
@@ -164,18 +164,22 @@ export function searchIngredients(query, { limit = 30 } = {}) {
   return INGREDIENTS.map((i) => [i, score(i)]).filter(([, sc]) => sc > 0).sort((a, b) => b[1] - a[1]).slice(0, limit).map(([i]) => i);
 }
 
+// Portions allégées : réglage personnel (profile.light), le foyer garde les quantités normales
+export const isLight = (s) => !!s.profile?.light;
 export function allRecipes(s) {
-  if (!s.customRecipes.length) return RECIPES;
+  const base = isLight(s) ? LIGHT_RECIPES : RECIPES;
+  if (!s.customRecipes.length) return base;
   const own = new Set(s.customRecipes.map((r) => r.id));
-  return [...s.customRecipes, ...RECIPES.filter((r) => !own.has(r.id))];
+  return [...s.customRecipes, ...base.filter((r) => !own.has(r.id))];
 }
-export const getRecipe = (s, id) => s.customRecipes.find((r) => r.id === id) || RECIPE[id] || null;
+export const getRecipe = (s, id) => s.customRecipes.find((r) => r.id === id) || (isLight(s) ? LIGHT_RECIPE : RECIPE)[id] || null;
 
 const roundQty = (q, unit) => (unit === 'pc' ? Math.round(q * 2) / 2 : Math.round(q));
 export function recipeLines(recipe, swaps = {}, servings = 1, over = null) {
   return recipe.ingredients.filter((l) => ING[l.ing]).map((line, idx) => {
     const to = swaps?.[idx];
     if (to === '-') return null;
+    if (over?.[idx] === 0 && !(to && to !== line.ing)) return null;
     if (over?.[idx] != null && !(to && to !== line.ing)) return { ...line, qty: roundQty(over[idx] * servings, ING[line.ing].unit), idx, adjusted: true };
     if (to && to !== line.ing && ING[to]) {
       const from = ING[line.ing];
@@ -551,12 +555,21 @@ export function slotKcal(s, slot) {
   const r = getRecipe(s, slot.recipeId);
   return r ? nutrition(slotLines(slot, r), s) : { kcal: 0, prot: 0 };
 }
-export const slotLines = (slot, r) => recipeLines(slot.fullPortion && r.baseIngredients ? { ...r, ingredients: r.baseIngredients } : r, slot.swaps, slot.servings || 1, slot.over);
+// fullPortion : repas d'avant les portions allégées, quantités d'origine exactes
+export const slotLines = (slot, r) => recipeLines(slot.fullPortion && r.baseIngredients ? { ...r, ingredients: r.v1Ingredients || r.baseIngredients } : r, slot.swaps, slot.servings || 1, slot.over);
 // Ce qu'on cuisine vraiment : ta portion + celles du foyer (stock et courses)
+// (portions allégées : seule ta portion est allégée, celles du foyer restent normales)
 export const cookLines = (s, slot, r) => {
   const f = householdFactor(s);
-  if (f <= 1) return slotLines(slot, r);
-  return recipeLines(slot.fullPortion && r.baseIngredients ? { ...r, ingredients: r.baseIngredients } : r, slot.swaps, (slot.servings || 1) + f - 1, slot.over);
+  const mine = slotLines(slot, r);
+  if (f <= 1) return mine;
+  const others = recipeLines(r.baseIngredients ? { ...r, ingredients: r.baseIngredients } : r, slot.swaps, f - 1, slot.over);
+  const out = mine.map((l) => ({ ...l }));
+  for (const o of others) {
+    const m = out.find((l) => l.idx === o.idx && l.ing === o.ing);
+    if (m) m.qty = roundQty(m.qty + o.qty, ING[m.ing].unit); else out.push(o);
+  }
+  return out;
 };
 
 // « J'ai mangé en plus » : n'importe quel aliment, kcal calculées depuis l'aliment ou la nutrition du produit

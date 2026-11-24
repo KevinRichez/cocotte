@@ -387,22 +387,178 @@ export const RECIPES = [
   R('crumble_pommes', 'Crumble aux pommes', '🍎', '#F7E3BF', 35, ['four'], C,
     [i('pomme', 1.5), i('farine', 30, 'feculent'), i('beurre', 20), i('sucre', 15)],
     ['Couper les pommes en dés dans un plat.', 'Sabler farine, beurre et sucre du bout des doigts, recouvrir.', 'Four 25 min à 190 °C.']),
+  // Végétalien (relecture nutrition, novembre 2026)
+  R('bolo_lentilles', 'Bolognaise de lentilles corail', '🍝', '#F8DCD3', 25, ['plaques', 'casserole'], DD,
+    [i('pates', 100, 'feculent'), i('lentilles_corail', 50, 'proteine'), i('sauce_tomate', 150), i('carottes', 60), i('oignon', 0.5), i('huile_olive', 5), i('herbes_italiennes', 1)],
+    ['Faire revenir oignon et carotte râpée dans l’huile 5 min.', 'Ajouter lentilles, sauce tomate, herbes et 150 ml d’eau, mijoter 15 min.', 'Cuire les pâtes, servir avec la sauce.']),
+  R('tofu_curry_coco', 'Curry de tofu, coco & épinards', '🍛', '#FBF0D2', 25, ['plaques', 'casserole', 'poele'], DD,
+    [i('tofu', 150, 'proteine'), i('lait_coco', 60), i('epinards', 100), i('riz_basmati', 80, 'feculent'), i('pate_curry', 10), i('oignon', 0.5), i('huile', 5)],
+    ['Cuire le riz.', 'Dorer le tofu en dés dans l’huile, 6 min.', 'Ajouter oignon, pâte de curry et lait de coco, 5 min.', 'Ajouter les épinards jusqu’à ce qu’ils fondent.']),
+  R('bowl_falafels', 'Bowl falafels, houmous & crudités', '🧆', '#EAF0E2', 15, ['four'], DD,
+    [i('falafels', 5, 'proteine'), i('houmous', 40), i('boulgour', 70, 'feculent'), i('tomates_cerises', 80), i('concombre', 0.3), i('carottes', 60)],
+    ['Cuire le boulgour 10 min.', 'Réchauffer les falafels au four 8 min.', 'Dresser avec crudités et houmous.']),
+  R('tofu_brouille', 'Tofu brouillé & tartines', '🍳', '#FBF0D2', 10, ['poele'], ['petitdej', 'dej'],
+    [i('tofu', 150, 'proteine'), i('pain_complet', 2, 'feculent'), i('tomates_cerises', 80), i('curcuma', 1), i('huile_olive', 5)],
+    ['Émietter le tofu à la fourchette.', 'Le poêler 5 min dans l’huile avec le curcuma, saler, poivrer.', 'Servir sur les tartines grillées avec les tomates.']),
+  R('pois_chiches_epinards', 'Pois chiches aux épinards & semoule', '🥬', '#EAF0E2', 20, ['plaques', 'casserole', 'poele'], DD,
+    [i('pois_chiches', 150, 'proteine'), i('epinards', 150), i('tomates_pelees', 100), i('semoule', 70, 'feculent'), i('cumin', 1), i('huile_olive', 10)],
+    ['Préparer la semoule à l’eau bouillante.', 'Faire revenir pois chiches et cumin dans l’huile.', 'Ajouter tomates et épinards, mijoter 8 min.']),
+  R('salade_lentilles', 'Salade tiède de lentilles', '🫘', '#F1DEC8', 25, ['plaques', 'casserole'], DD,
+    [i('lentilles', 80, 'proteine'), i('carottes', 80), i('tomate', 1), i('echalote', 1), i('vinaigrette', 15), i('pain', 60, 'feculent')],
+    ['Cuire les lentilles 20 min avec les carottes en rondelles.', 'Égoutter, ajouter échalote, tomate et vinaigrette.', 'Servir tiède avec du pain.']),
+  R('wok_tofu_nouilles', 'Wok de nouilles, tofu & légumes', '🥢', '#F3E6CF', 15, ['plaques', 'casserole', 'poele'], DD,
+    [i('nouilles', 90, 'feculent'), i('tofu', 150, 'proteine'), i('legumes_poeles', 200), i('sauce_soja', 15), i('huile', 5)],
+    ['Cuire les nouilles.', 'Dorer le tofu dans l’huile, ajouter les légumes, 6 min.', 'Ajouter nouilles et sauce soja, faire sauter 2 min.']),
+  R('pates_sicilienne', 'Pâtes à la sicilienne (aubergine, pois chiches)', '🍆', '#F4DED6', 25, ['plaques', 'casserole', 'poele'], DD,
+    [i('pates', 100, 'feculent'), i('aubergine', 150), i('sauce_tomate', 120), i('pois_chiches', 80, 'proteine'), i('huile_olive', 10), i('basilic', 1)],
+    ['Couper l’aubergine en dés, la dorer 10 min dans l’huile.', 'Ajouter sauce tomate et pois chiches, 5 min.', 'Mélanger avec les pâtes cuites et le basilic.']),
+  R('haricots_tomate', 'Haricots blancs à la tomate & pain grillé', '🍞', '#F8DCD3', 15, ['plaques', 'casserole', 'grille-pain'], ['petitdej', 'dej', 'diner'],
+    [i('haricots_blancs', 200, 'proteine'), i('sauce_tomate', 100), i('oignon', 0.5), i('paprika_fume', 1), i('pain', 80, 'feculent')],
+    ['Faire revenir l’oignon, ajouter haricots, sauce tomate et paprika.', 'Mijoter 8 min.', 'Servir sur le pain grillé.']),
+  R('soupe_pois_casses', 'Soupe de pois cassés', '🥣', '#EAF0E2', 45, ['plaques', 'casserole', 'blender'], DD,
+    [i('pois_casses', 80, 'proteine'), i('carottes', 100), i('oignon', 0.5), i('bouillon', 1), i('pain', 60, 'feculent')],
+    ['Rincer les pois cassés.', 'Les cuire 40 min avec carottes, oignon et bouillon.', 'Mixer, servir avec du pain.']),
+  R('poke_edamame', 'Poke bowl edamame & avocat', '🥑', '#EAF0E2', 15, ['plaques', 'casserole'], DD,
+    [i('riz', 80, 'feculent'), i('edamame', 100, 'proteine'), i('avocat', 0.5), i('carottes', 60), i('concombre', 0.3), i('sauce_soja', 15), i('sesame', 3)],
+    ['Cuire le riz.', 'Cuire les edamame 4 min à l’eau.', 'Dresser avec avocat, carotte râpée et concombre, arroser de sauce soja.']),
+  R('tacos_haricots', 'Tacos aux haricots rouges & avocat', '🌮', '#F4DED6', 15, ['poele'], DD,
+    [i('wraps', 2, 'feculent'), i('haricots_rouges', 150, 'proteine'), i('mais', 60), i('avocat', 0.5), i('tomate', 0.5), i('epices_tacos', 2)],
+    ['Écraser grossièrement les haricots avec les épices, chauffer 5 min.', 'Garnir les galettes de haricots, maïs, avocat et tomate.']),
+  R('ratatouille_quinoa', 'Ratatouille, quinoa & pois chiches', '🫑', '#F8DCD3', 20, ['plaques', 'casserole'], DD,
+    [i('ratatouille', 250), i('quinoa', 70, 'feculent'), i('pois_chiches', 100, 'proteine')],
+    ['Cuire le quinoa 12 min.', 'Réchauffer la ratatouille avec les pois chiches.', 'Servir ensemble.']),
+  R('parmentier_lentilles', 'Parmentier de lentilles & patate douce', '🍠', '#F7E3BF', 40, ['plaques', 'casserole', 'four'], DD,
+    [i('lentilles', 70, 'proteine'), i('patate_douce', 300, 'feculent'), i('carottes', 80), i('oignon', 0.5), i('lait_avoine', 50), i('huile_olive', 10)],
+    ['Cuire les lentilles 20 min avec carottes et oignon.', 'Cuire la patate douce, l’écraser avec le lait d’avoine.', 'Lentilles au fond, purée dessus, four 15 min à 200 °C.']),
+  R('couscous_legumes', 'Couscous de légumes & pois chiches', '🥕', '#F5DEC6', 25, ['plaques', 'casserole'], DD,
+    [i('semoule', 80, 'feculent'), i('pois_chiches', 120, 'proteine'), i('courgette', 150), i('carottes', 100), i('ras_el_hanout', 2), i('huile_olive', 10)],
+    ['Mijoter carottes, courgette et pois chiches 15 min dans un bouillon épicé.', 'Préparer la semoule.', 'Servir avec le bouillon.']),
+  R('veloute_lentilles_carottes', 'Velouté de lentilles corail & carottes', '🥕', '#F7E3BF', 25, ['plaques', 'casserole', 'blender'], DD,
+    [i('lentilles_corail', 60, 'proteine'), i('carottes', 200), i('lait_coco', 40), i('oignon', 0.5), i('cumin', 1), i('pain', 60, 'feculent')],
+    ['Cuire lentilles, carottes et oignon 20 min dans 500 ml d’eau.', 'Mixer avec le lait de coco et le cumin.', 'Servir avec du pain.']),
+  R('pita_falafels', 'Pita falafels & crudités', '🥙', '#F3E6CF', 10, ['four'], ['dej', 'diner', 'collation'],
+    [i('pita', 1.5, 'feculent'), i('falafels', 4, 'proteine'), i('houmous', 30), i('salade', 30), i('tomate', 0.5)],
+    ['Réchauffer pita et falafels.', 'Garnir de houmous, salade et tomate.']),
+  R('tofu_pane_haricots', 'Tofu croustillant, riz & haricots verts', '🥢', '#EAF0E2', 20, ['plaques', 'casserole', 'poele'], DD,
+    [i('tofu', 150, 'proteine'), i('farine', 15), i('riz', 80, 'feculent'), i('haricots_verts', 150), i('sauce_soja', 10), i('huile', 10)],
+    ['Cuire riz et haricots verts.', 'Fariner le tofu en tranches, le dorer dans l’huile 3 min par face.', 'Arroser de sauce soja.']),
+  R('porridge_soja_fruits', 'Porridge au lait de soja & fruits rouges', '🫐', '#F1E3EA', 8, ['plaques', 'casserole', 'micro-ondes'], PD,
+    [i('avoine', 60, 'feculent'), i('lait_soja', 250), i('fruits_rouges', 80), i('beurre_cac', 15), i('sirop_erable', 10)],
+    ['Cuire les flocons dans le lait de soja 4 min.', 'Ajouter fruits rouges, beurre de cacahuète et sirop d’érable.']),
+  R('yaourt_soja_granola', 'Yaourts soja, granola & banane', '🥣', '#F6E9D7', 3, ['aucun'], PDC,
+    [i('yaourt_soja', 2), i('granola', 40, 'feculent'), i('banane', 1)],
+    ['Verser les yaourts dans un bol.', 'Ajouter granola et banane en rondelles.']),
+  R('smoothie_soja_cac', 'Smoothie banane, avoine & cacahuète', '🥤', '#F7E3BF', 5, ['blender'], PDC,
+    [i('lait_soja', 250), i('banane', 1), i('avoine', 30, 'feculent'), i('beurre_cac', 15)],
+    ['Tout mixer 30 secondes.']),
+  // Végétarien
+  R('gratin_pates_epinards', 'Gratin de pâtes, épinards & ricotta', '🧀', '#EAF0E2', 30, ['plaques', 'casserole', 'four'], DD,
+    [i('pates', 100, 'feculent'), i('epinards', 150), i('ricotta', 80, 'proteine'), i('sauce_tomate', 80), i('emmental', 25)],
+    ['Cuire les pâtes.', 'Mélanger avec épinards, ricotta et sauce tomate.', 'Parsemer d’emmental, four 15 min à 200 °C.']),
+  R('omelette_legumes_feta', 'Omelette aux légumes & feta', '🥚', '#FBF0D2', 15, ['poele'], ['petitdej', 'dej', 'diner'],
+    [i('oeufs', 3, 'proteine'), i('courgette', 100), i('poivron', 0.5), i('feta', 30), i('pain', 60, 'feculent'), i('huile_olive', 5)],
+    ['Poêler courgette et poivron 6 min.', 'Verser les œufs battus, émietter la feta.', 'Cuire 4 min à couvert, servir avec du pain.']),
+  R('halloumi_boulgour', 'Halloumi grillé, boulgour & légumes', '🧀', '#F5E7C6', 20, ['plaques', 'casserole', 'poele'], DD,
+    [i('halloumi', 80, 'proteine'), i('boulgour', 70, 'feculent'), i('courgette', 120), i('tomates_cerises', 80), i('huile_olive', 10)],
+    ['Cuire le boulgour.', 'Poêler la courgette, puis griller le halloumi 2 min par face.', 'Dresser avec les tomates.']),
+  R('lasagnes_legumes', 'Lasagnes aux légumes', '🫕', '#F8DCD3', 45, ['four'], DD,
+    [i('lasagnes', 80, 'feculent'), i('ratatouille', 200), i('ricotta', 60, 'proteine'), i('mozzarella', 50), i('sauce_tomate', 100)],
+    ['Alterner feuilles de lasagne, ratatouille, sauce tomate et ricotta.', 'Finir par la mozzarella.', 'Four 35 min à 190 °C.']),
+  R('tarte_poireaux_chevre', 'Tarte poireaux & chèvre', '🥧', '#EAF0E2', 40, ['plaques', 'poele', 'four'], DD,
+    [i('pate_feuilletee', 70, 'feculent'), i('poireau', 150), i('chevre', 40), i('oeufs', 1.5, 'proteine'), i('creme', 30), i('salade', 80)],
+    ['Fondre les poireaux émincés 10 min à la poêle.', 'Battre œufs et crème, mélanger aux poireaux.', 'Verser sur la pâte, ajouter le chèvre, four 25 min à 190 °C.', 'Servir avec la salade.']),
+  R('curry_oeufs_epinards', 'Curry d’œufs & épinards', '🍛', '#FBF0D2', 20, ['plaques', 'casserole'], DD,
+    [i('oeufs', 3, 'proteine'), i('epinards', 150), i('lait_coco', 50), i('tomates_pelees', 100), i('riz', 80, 'feculent'), i('curry', 2)],
+    ['Cuire le riz et les œufs 9 min (durs), les écaler.', 'Mijoter tomates, lait de coco et curry 5 min, ajouter épinards.', 'Ajouter les œufs coupés en deux.']),
+  R('pates_legumes_mozza', 'Pâtes aux légumes grillés & mozzarella', '🍝', '#F4DED6', 25, ['plaques', 'casserole', 'poele'], DD,
+    [i('pates', 100, 'feculent'), i('aubergine', 100), i('courgette', 100), i('mozzarella', 60, 'proteine'), i('huile_olive', 10), i('basilic', 1)],
+    ['Couper les légumes en dés, les dorer 10 min dans l’huile.', 'Mélanger avec les pâtes cuites.', 'Ajouter la mozzarella en morceaux et le basilic.']),
+  R('bowl_oeuf_quinoa', 'Bowl quinoa, œufs mollets & avocat', '🥗', '#EAF0E2', 15, ['plaques', 'casserole'], DD,
+    [i('quinoa', 70, 'feculent'), i('oeufs', 2, 'proteine'), i('avocat', 0.5), i('carottes', 60), i('edamame', 60), i('sauce_soja', 10)],
+    ['Cuire le quinoa 12 min et les œufs 6 min.', 'Dresser avec avocat, carotte râpée et edamame.', 'Arroser de sauce soja.']),
+  R('gnocchis_epinards', 'Gnocchis épinards & parmesan', '🥬', '#EAF0E2', 15, ['plaques', 'poele'], DD,
+    [i('gnocchis', 250, 'feculent'), i('epinards', 150), i('creme', 30), i('parmesan', 20, 'proteine')],
+    ['Dorer les gnocchis à la poêle 6 min.', 'Ajouter épinards et crème, 3 min.', 'Parsemer de parmesan.']),
+  R('pizza_vegetarienne', 'Pizza végétarienne', '🍕', '#F8DCD3', 25, ['four'], DD,
+    [i('pate_pizza', 130, 'feculent'), i('sauce_tomate', 60), i('mozzarella', 60, 'proteine'), i('poivron', 0.5), i('champignons', 50), i('olives', 15), i('salade', 60)],
+    ['Étaler la pâte, napper de sauce tomate.', 'Garnir de légumes, olives et mozzarella.', 'Four 12 min à 240 °C, servir avec la salade.']),
 ];
 
-// Portions allégées (novembre 2026) : toutes les recettes intégrées à ~75 %, sauf celles réglées à la main.
+// Relecture nutrition (novembre 2026), repères PNNS / ANSES pour un adulte :
+// féculents secs 80 à 100 g, viande 100 à 150 g, fromage environ 30 g, crème 20 à 30 ml, 150 g de légumes par plat.
+// qty : quantités revues (portions normales seulement, les portions allégées gardent leurs quantités).
+// add : légumes ajoutés en accompagnement (pour tout le monde, en fin de liste pour garder les remplacements).
+const salade = (q = 80) => ['salade', q];
+export const REVIEW_V2 = {
+  pates_poulet_creme: { qty: { 0: 100, 2: 30 } },
+  carbo_express: { qty: { 0: 100, 1: 75, 3: 30 }, add: [salade()], step: 'Servir avec une salade verte.' },
+  omelette_jambon: { qty: { 2: 20, 3: 60 }, add: [salade(), ['tomate', 1]], step: 'Servir avec salade et tomate.' },
+  croque_monsieur: { qty: { 2: 30 }, add: [salade()], step: 'Servir avec une salade verte.' },
+  gnocchis_tomate_mozza: { qty: { 0: 250 }, add: [salade()], step: 'Servir avec une salade verte.' },
+  gratin_pates_jambon: { qty: { 0: 100, 2: 40, 3: 30 }, add: [['brocoli', 120]], step: 'Ajouter les brocolis cuits 5 min avant de gratiner.' },
+  pdt_oeufs_plat: { add: [salade()], step: 'Servir avec une salade verte.' },
+  pates_pesto_poulet: { qty: { 0: 100 }, add: [['tomates_cerises', 100]], step: 'Ajouter les tomates cerises coupées en deux.' },
+  steak_puree: { qty: { 1: 1.5, 3: 10 }, add: [['haricots_verts', 150]], step: 'Servir avec des haricots verts.' },
+  dinde_pates_tomate: { qty: { 1: 100 }, add: [['courgette', 120]], step: 'Faire revenir la courgette en dés avec la dinde.' },
+  poulet_curry_riz: { qty: { 2: 30 }, add: [['epinards', 100]], step: 'Ajouter les épinards en fin de cuisson.' },
+  poulet_patate_douce: { add: [['haricots_verts', 120]], step: 'Servir avec des haricots verts.' },
+  chili_con_carne: { qty: { 0: 1.5, 5: 80 } },
+  bolognaise: { qty: { 0: 100, 1: 1 }, add: [['carottes', 60]], step: 'Ajouter une carotte râpée avec l’oignon.' },
+  hachis_parmentier: { qty: { 2: 1.5 }, add: [salade()], step: 'Servir avec une salade verte.' },
+  quiche_lorraine: { qty: { 0: 90, 3: 40, 5: 80 } },
+  pizza_maison: { add: [salade(60)], step: 'Servir avec une salade verte.' },
+  burger_maison: { qty: { 4: 40, 6: 200 } },
+  curry_pois_chiches: { qty: { 1: 70 }, add: [['epinards', 100]], step: 'Ajouter les épinards en fin de cuisson.' },
+  riz_cantonais: { qty: { 0: 90 }, add: [['carottes', 60]], step: 'Faire sauter une carotte en dés avec les petits pois.' },
+  gratin_dauphinois_jambon: { qty: { 1: 50 }, add: [salade()], step: 'Servir avec une salade verte.' },
+  tartiflette: { qty: { 3: 30, 4: 60 }, add: [salade()], step: 'Servir avec une salade verte.' },
+  saucisses_lentilles: { qty: { 0: 1.5 } },
+  couscous_merguez: { qty: { 0: 2 }, add: [['carottes', 80]], step: 'Cuire les carottes avec la courgette.' },
+  cabillaud_puree: { add: [['epinards', 120]], step: 'Servir avec des épinards.' },
+  poisson_pane_petits_pois: { add: [['carottes', 80]], step: 'Cuire des carottes avec les petits pois.' },
+  nuggets_frites: { qty: { 0: 150 }, add: [['carottes', 80]], step: 'Servir avec des carottes râpées.' },
+  tortilla_espagnole: { add: [salade()], step: 'Servir avec une salade verte.' },
+  sandwich_jambon_beurre: { add: [['tomate', 0.5], salade(20)], step: 'Ajouter tomate et salade dans le sandwich.' },
+  pates_saumon_fume: { qty: { 0: 100, 2: 30 }, add: [['epinards', 100]], step: 'Ajouter les épinards avec la crème.' },
+  oeufs_cocotte: { add: [salade()], step: 'Servir avec une salade verte.' },
+  gnocchis_lardons: { qty: { 0: 250, 2: 30 }, add: [salade()], step: 'Servir avec une salade verte.' },
+  hot_dog: { add: [['carottes', 80]], step: 'Servir avec des carottes râpées.' },
+  cotes_porc_pdt: { add: [['haricots_verts', 150]], step: 'Servir avec des haricots verts.' },
+  raclette: { add: [salade()], step: 'Servir avec une salade verte.' },
+  poulet_roti_pdt: { qty: { 0: 200 }, add: [['haricots_verts', 120]], step: 'Servir avec des haricots verts.' },
+  croziflette: { qty: { 1: 60 }, add: [salade()], step: 'Servir avec une salade verte.' },
+  mac_cheese: { qty: { 0: 100 }, add: [['brocoli', 120]], step: 'Ajouter des brocolis cuits avant de servir.' },
+  steak_frites: { qty: { 1: 200, 3: 80 } },
+  galette_complete: { add: [salade(60)], step: 'Servir avec une salade verte.' },
+  omelette_champignons: { add: [salade(60)], step: 'Servir avec une salade verte.' },
+  saucisses_poelee: { qty: { 0: 1.5 } },
+  lasagnes_bolo: { add: [salade(60)], step: 'Servir avec une salade verte.' },
+};
+for (const r of RECIPES) {
+  const rv = REVIEW_V2[r.id];
+  if (!rv) continue;
+  r.v1Length = r.ingredients.length;
+  r.v1Ingredients = r.ingredients;
+  r.lightSource = [...r.ingredients, ...(rv.add || []).map(([ing, qty]) => ({ ing, qty }))];
+  r.ingredients = r.lightSource.map((x, idx) => (rv.qty?.[idx] != null ? { ...x, qty: rv.qty[idx] } : x));
+  if (rv.step) r.steps = [...r.steps, rv.step];
+}
+
+// Portions allégées (réglage du profil « Portions allégées », environ 25 % en moins sur ta portion).
+// RECIPES garde les quantités normales (foyer, nouveaux profils) ; LIGHT_RECIPES est la version allégée.
 // Les recettes modifiées dans l'app (customRecipes) ne sont pas concernées.
 export const LIGHT_FACTOR = 0.75;
 const LIGHT_KEEP = new Set(['bowl_steak_riz']);
-for (const r of RECIPES) {
+export const LIGHT_RECIPES = RECIPES.map((r) => {
   r.lightFactor = LIGHT_KEEP.has(r.id) ? 1 : LIGHT_FACTOR;
-  if (r.lightFactor === 1) continue;
-  r.baseIngredients = r.ingredients;
-  r.ingredients = r.ingredients.map((x) => {
+  if (r.lightFactor === 1) return r;
+  return { ...r, baseIngredients: r.ingredients, ingredients: (r.lightSource || r.ingredients).map((x) => {
     const ing = ING[x.ing];
     if (!ing || ing.staple) return x;
     const q = x.qty * r.lightFactor;
     return { ...x, qty: ing.unit === 'pc' ? Math.max(0.5, Math.round(q * 2) / 2) : Math.max(5, Math.round(q / 5) * 5) };
-  });
-}
+  }) };
+});
+export const LIGHT_RECIPE = Object.fromEntries(LIGHT_RECIPES.map((r) => [r.id, r]));
 
 export const RECIPE = Object.fromEntries(RECIPES.map((r) => [r.id, r]));

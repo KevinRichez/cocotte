@@ -1,10 +1,10 @@
 import { update, restore, getState, backupNow } from './store.js';
 import { toast } from './lib/toast.js';
-import { MEALS, MEAL_KEYS, RECIPE } from './data/recipes.js';
+import { MEALS, MEAL_KEYS, RECIPE, REVIEW_V2 } from './data/recipes.js';
 import { ING, guessIngredient, matchIngredientText } from './data/ingredients.js';
 import { today, relDay, addDays } from './lib/dates.js';
 import {
-  uid, recipeLines, consumeLines, restoreTaken, nextMainSlot, batchIngOf, equivOf, autoSwaps, slotLines, cookLines, batchOver, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
+  uid, recipeLines, consumeLines, restoreTaken, nextMainSlot, prevMainSlot, batchIngOf, equivOf, autoSwaps, slotLines, cookLines, batchOver, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
   listItemInfo, listTotal, euro, getProduct, getRecipe, defaultProductFor, slotKcal, isSlotPast,
 } from './lib/engine.js';
 
@@ -12,6 +12,10 @@ const undoable = (prev, message) => toast(message, { action: 'Annuler', onAction
 const mealName = (m) => MEALS[m].label.toLowerCase();
 
 export function planRecipe(date, meal, recipeId, swaps = {}, servings = 1) {
+  // Le même plat qu'au repas d'avant : c'est un reste (même portion, même barquette)
+  const before = prevMainSlot(date, meal);
+  const bs = before && getState().plan[before.date]?.[before.meal];
+  if (bs && bs.recipeId === recipeId && !bs.leftover && (bs.status === 'planned' || bs.status === 'eaten')) return planLeftover(before.date, before.meal, { date, meal });
   if (!swaps || !Object.keys(swaps).length) { const r = getRecipe(getState(), recipeId); swaps = r ? autoSwaps(getState(), r) : {}; }
   const prev = update((d) => {
     d.plan[date] = d.plan[date] || {};
@@ -567,6 +571,7 @@ export function relinkLegacyV3() {
 export function keepPastPortionsV1() {
   const s = getState();
   if (s.flags?.lightV1) return;
+  if (!s.profile.light) { update((d) => { d.flags = { ...(d.flags || {}), lightV1: true }; }); return; }
   const custom = new Set(s.customRecipes.map((r) => r.id));
   let n = 0;
   update((d) => {
@@ -613,6 +618,25 @@ export function addNeedsToList(items) {
     }
   });
   undoable(prev, `${items.length} produit${items.length > 1 ? 's' : ''} ajouté${items.length > 1 ? 's' : ''} à ta liste`);
+}
+
+// Relecture nutrition : les légumes ajoutés ne changent pas les repas déjà passés ou mangés
+export function freezeReviewV2() {
+  const s = getState();
+  if (s.flags?.reviewV2) return;
+  const custom = new Set(s.customRecipes.map((r) => r.id));
+  const t = today();
+  update((d) => {
+    d.flags = { ...(d.flags || {}), reviewV2: true };
+    for (const [date, slots] of Object.entries(d.plan)) {
+      for (const slot of Object.values(slots || {})) {
+        const r = slot?.recipeId && !custom.has(slot.recipeId) && RECIPE[slot.recipeId];
+        if (!r || !REVIEW_V2[r.id]?.add || slot.fullPortion || (date >= t && slot.status !== 'eaten')) continue;
+        slot.over = { ...(slot.over || {}) };
+        for (let k = r.v1Length; k < r.ingredients.length; k++) slot.over[k] = 0;
+      }
+    }
+  });
 }
 
 export function restockCandidates(s) {

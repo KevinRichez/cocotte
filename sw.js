@@ -1,4 +1,4 @@
-const VERSION = 'cocotte-v29';
+const VERSION = 'cocotte-v30';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css', 'css/fonts.css', 'fonts/jakarta.woff2', 'fonts/bricolage.woff2',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png',
