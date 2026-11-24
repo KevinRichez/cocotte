@@ -4,7 +4,7 @@ import { ING, fmtQty } from '../data/ingredients.js';
 import { parseRecipeText } from '../lib/recipeImport.js';
 import { RecipeEditor } from './RecipeEditor.js';
 
-const COLORS = ['#F6E9D7', '#F4DED6', '#E3EDD5', '#DDEBF1', '#EDE3F1', '#F7E3BF'];
+const COLORS = ['#F6E9D7', '#F4DED6', '#E3EDD5', '#E3EEE6', '#FCEBB4', '#F7E3BF'];
 
 // Importer une recette : texte copié depuis un site ou une app, ou photo / capture d'écran
 export function RecipeImport({ open, onClose, onSaved }) {

@@ -15,7 +15,7 @@ Utilisateur principal : UX/UI designer exigeant, objectif prise de poids, gestio
 ## Identité (DA Cocotte)
 
 - Référence : `brand/cocotte-da.html`. Symbole = cocotte vue de dessus (beurre sur laurier).
-- Palette : laurier #1F4D3A, beurre #F7C948 (`.btn.primary`), faïence #EEF2EC (fond), abricot, lavande, fonte #17201C. Zéro rouge.
+- Palette réduite à 5 familles (nuances autorisées) : laurier #1F4D3A (structure, positif, refuge), beurre #F7C948 (`.btn.primary`, défi doux), faïence #EEF2EC (fond, neutre, no-go), abricot #F4A06B (DLC proche, rappels doux), fonte #17201C (texte). Plus de lavande, ciel ni menthe (les variables CSS `--lav`, `--sky`, `--mint`, `--mute` pointent vers ces familles). Zéro rouge.
 - Titres `.h1`/`.h2` en Bricolage Grotesque, interface en Plus Jakarta Sans (polices auto-hébergées dans `fonts/`).
 - Garder les emojis et icônes actuels, ne pas les remplacer par des pictos dessinés.
 

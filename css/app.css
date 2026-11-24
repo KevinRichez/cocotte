@@ -24,10 +24,13 @@
 
   --amber: #7A5A06;  --amber-50: #FCEBB4;
   --peach: #8F4A22;  --peach-50: #FDE3D2;
-  --lav: #6359A0;    --lav-50: #EFEDF8;
-  --sky: #376688;    --sky-50: #E6EFF6;
-  --mint: #2F7461;   --mint-50: #E2F2EC;
-  --mute: #6B747B;   --mute-50: #EEEEEC;
+  --abricot: #F4A06B;
+  /* Palette réduite (novembre 2026) : laurier, beurre, faïence, abricot, fonte.
+     Les anciens noms restent pour le code mais pointent vers ces 5 familles. */
+  --lav: #7A5A06;    --lav-50: #FCEBB4;   /* défi doux : beurre */
+  --sky: #1F4D3A;    --sky-50: #E2EFE5;   /* refuge : laurier */
+  --mint: #1F4D3A;   --mint-50: #E2EFE5;  /* laurier */
+  --mute: #56625C;   --mute-50: #E6ECE4;  /* neutre : faïence et fonte */
 
   --r-sm: 12px;
   --r: 16px;
@@ -128,7 +131,7 @@ h1, h2, h3, h4, p { margin: 0; }
 .qa, .qa.eat, .qa.out, .qa.skip { background: var(--surface); color: var(--ink); border: 1.5px solid var(--line); box-shadow: var(--shadow-sm); }
 .qa.eat svg { color: var(--sage-600); }
 .qa.out svg { color: var(--slate); }
-.qa.skip svg { color: var(--lav); }
+.qa.skip svg { color: var(--ink-3); }
 .has-photo { background-size: cover !important; background-position: center; background-color: var(--surface-2); }
 .photo-fab { position: absolute; right: 10px; bottom: 10px; }
 .extras-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 4px 0; }
@@ -175,7 +178,7 @@ h1, h2, h3, h4, p { margin: 0; }
 .day .dots i { width: 5px; height: 5px; border-radius: 99px; background: var(--surface-3); }
 .day .dots i.on { background: var(--sage); }
 .day .dots i.out { background: var(--slate-100); }
-.day .dots i.skip { background: #CFCBEA; }
+.day .dots i.skip { background: var(--slate-100); }
 .day.today { border-color: var(--sage-100); }
 .day.sel { background: var(--slate); color: #fff; }
 .day.sel .dname { color: rgba(255, 255, 255, .7); }
@@ -341,7 +344,7 @@ button, a, input, select, label { touch-action: manipulation; }
 .tier small { font-size: 11.5px; font-weight: 700; color: var(--ink-2); }
 .tier:active { transform: scale(.95); }
 .tier.on.refuge { background: var(--sky-50); border-color: var(--sky); }
-.tier.on.ok { background: var(--sage-50); border-color: var(--sage); }
+.tier.on.ok { background: var(--surface-2); border-color: var(--ink-3); }
 .tier.on.doux { background: var(--lav-50); border-color: var(--lav); }
 .tier.on.nogo { background: var(--mute-50); border-color: var(--mute); }
 .tiers.compact { display: flex; gap: 4px; flex: none; }

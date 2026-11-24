@@ -15,7 +15,7 @@ const firstGrapheme = (v) => {
   if (!t) return '';
   try { return [...new Intl.Segmenter('fr', { granularity: 'grapheme' }).segment(t)].pop()?.segment || ''; } catch { return [...t].slice(-2).join(''); }
 };
-const COLORS = ['#F6E9D7', '#F4DED6', '#E3EDD5', '#DDEBF1', '#EDE3F1', '#F7E3BF', '#F8DCD3', '#EAF0E2'];
+const COLORS = ['#F6E9D7', '#F4DED6', '#E3EDD5', '#E3EEE6', '#FCEBB4', '#F7E3BF', '#F8DCD3', '#EAF0E2'];
 
 const stepFor = (ing) => (ing.unit === 'pc' ? 0.5 : ing.unit === 'ml' ? 25 : 10);
 const defaultQty = (ing) => ing.portion || (ing.unit === 'pc' ? 1 : ing.staple ? 2 : 100);

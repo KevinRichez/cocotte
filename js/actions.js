@@ -555,7 +555,7 @@ export function keepPastPortionsV1() {
       }
     }
   });
-  toast('Recettes allégées pour la suite (environ 25 % en moins). Tes repas d’avant restent inchangés.', { duration: 7000 });
+  if (s.profile.onboarded && Object.keys(s.plan).length) toast('Recettes allégées pour la suite (environ 25 % en moins). Tes repas d’avant restent inchangés.', { duration: 7000 });
   return n;
 }
 
