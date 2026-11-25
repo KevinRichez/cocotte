@@ -4,7 +4,7 @@ import { MEALS, MEAL_KEYS, RECIPE, REVIEW_V2 } from './data/recipes.js';
 import { ING, guessIngredient, matchIngredientText } from './data/ingredients.js';
 import { today, relDay, addDays } from './lib/dates.js';
 import {
-  uid, recipeLines, consumeLines, restoreTaken, nextMainSlot, prevMainSlot, batchIngOf, equivOf, autoSwaps, slotLines, cookLines, batchOver, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
+  uid, leftoverSlotsFor, recipeLines, consumeLines, restoreTaken, nextMainSlot, prevMainSlot, batchIngOf, equivOf, autoSwaps, slotLines, cookLines, batchOver, compileNeeds, nextFreeSlot, addToInventory, estimateDlc,
   listItemInfo, listTotal, euro, getProduct, getRecipe, defaultProductFor, slotKcal, isSlotPast,
 } from './lib/engine.js';
 
@@ -26,18 +26,7 @@ export function planRecipe(date, meal, recipeId, swaps = {}, servings = 1) {
 }
 
 // Créneaux « reste » qui dépendent de ce plat (même recette, dans les 2 jours)
-function leftoverSlotsOf(d, date, meal, recipeId) {
-  const out = [];
-  for (let k = 0; k <= 2; k++) {
-    const day = addDays(date, k);
-    for (const m of ['dej', 'diner']) {
-      if (k === 0 && (m === meal || (meal === 'diner' && m === 'dej'))) continue;
-      const sl = d.plan[day]?.[m];
-      if (sl?.leftover && sl.status === 'planned' && sl.recipeId === recipeId && !d.inventory.some((x) => x.forSlot === `${day}|${m}`)) out.push({ date: day, meal: m, slot: sl });
-    }
-  }
-  return out;
-}
+const leftoverSlotsOf = (d, date, meal, recipeId) => leftoverSlotsFor(d, date, meal, recipeId);
 
 function eatInDraft(d, date, meal) {
   const slot = d.plan[date]?.[meal];

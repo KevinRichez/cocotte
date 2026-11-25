@@ -60,6 +60,7 @@ js/
 
 - Portions allégées : réglage personnel `profile.light` (~75 %, `LIGHT_RECIPES` dans recipes.js). `getRecipe`/`allRecipes` renvoient la version allégée si actif ; `cookLines` ajoute les parts du foyer en quantités normales. Les profils existants avant v30 avec `flags.lightV1` l'ont activé.
 - Relecture nutrition : `REVIEW_V2` (quantités normales revues selon PNNS / ANSES, légumes ajoutés en fin de liste pour tous). Les portions allégées gardent les quantités d'avant. `freezeReviewV2` met `over[idx] = 0` sur les légumes ajoutés des repas passés ; `over === 0` retire la ligne.
+- Restes : la fiche du repas cuisiné affiche « À cuisiner » = sa portion + les restes prévus (`leftoverSlotsFor` dans engine, aussi utilisé par `eatInDraft`). La fiche d'un reste indique qu'il n'y a rien à préparer.
 - `planRecipe` : le même plat qu'au repas principal d'avant devient automatiquement un reste (`planLeftover`).
 - Foyer : `profile.household = { adults, kids }` (enfant = 0,6 part). `cookLines()` = ta portion + celles du foyer, utilisé pour le stock déduit et les courses ; la jauge reste personnelle.
 - Régimes et allergies : `profile.diets` (clés de `js/data/diets.js`). `ingTier()` renvoie `nogo` pour un aliment exclu ; pour un régime, l'aliment vedette (viande, poisson, 1er ingrédient, cité dans le nom) n'est jamais remplacé : la recette est masquée.

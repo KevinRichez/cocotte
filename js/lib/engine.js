@@ -588,6 +588,19 @@ export function extraNutrition(s, x) {
 export const slotExtras = (s, date, meal) => s.extras?.[date]?.[meal] || [];
 
 // Reste au frigo prévu pour un créneau (créé quand le premier plat est mangé)
+// Créneaux « reste » cuisinés en même temps que ce repas (même recette, dans les 2 jours)
+export function leftoverSlotsFor(s, date, meal, recipeId) {
+  const out = [];
+  for (let k = 0; k <= 2; k++) {
+    const day = addDays(date, k);
+    for (const m of ['dej', 'diner']) {
+      if (k === 0 && (m === meal || (meal === 'diner' && m === 'dej'))) continue;
+      const sl = s.plan[day]?.[m];
+      if (sl?.leftover && sl.status === 'planned' && sl.recipeId === recipeId && !s.inventory.some((x) => x.forSlot === `${day}|${m}`)) out.push({ date: day, meal: m, slot: sl });
+    }
+  }
+  return out;
+}
 export const leftoverLotFor = (s, date, meal) => s.inventory.find((x) => x.forSlot === `${date}|${meal}`);
 
 // Barquette partagée en deux plats : 300 g de poulet = 150 g par plat

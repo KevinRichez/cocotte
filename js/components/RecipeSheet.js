@@ -8,7 +8,7 @@ import { today, addDays, dayShort, dayNum, relDay } from '../lib/dates.js';
 import {
   recipeLines, nutrition, linesCost, stockQty, swapOptions, budgetLevel, budgetLabel, euro, kcalFmt, nextFreeSlot,
   getRecipe, recipeTier, ingTier, canCook, slotBudget, servingsFor, refProduct, photoFor, productTitle, fmtPortion, stockSubstitute, linkCandidates, pastStock, cleanName, nextMainSlot, autoSwaps, removedIngs, blockReason,
-  householdFactor, householdLabel, showNumbers,
+  householdFactor, householdLabel, showNumbers, leftoverSlotsFor,
 } from '../lib/engine.js';
 import { planRecipe, addIngsToList, setTier, deleteRecipe, relinkStockItem, setSlotServings, planLeftover } from '../actions.js';
 import { confirmAction } from '../lib/confirm.js';
@@ -38,7 +38,13 @@ export function RecipeSheet({ recipeId, onClose, target, slot: slotCtx }) {
 
   const slotOver = slotCtx && s.plan[slotCtx.date]?.[slotCtx.meal]?.recipeId === recipeId ? s.plan[slotCtx.date][slotCtx.meal].over : null;
   const hh = householdFactor(s);
-  const cookFor = forHome && hh > 1 ? servings + hh - 1 : servings;
+  // Cuisson pour ce repas et ses restes : on affiche tout ce qu'il faut cuisiner d'un coup
+  const plannedSlot = slotCtx && s.plan[slotCtx.date]?.[slotCtx.meal]?.recipeId === recipeId ? s.plan[slotCtx.date][slotCtx.meal] : null;
+  const rest = plannedSlot && !plannedSlot.leftover && plannedSlot.status === 'planned' ? leftoverSlotsFor(s, slotCtx.date, slotCtx.meal, recipeId) : [];
+  const restServings = rest.reduce((n, x) => n + (x.slot.servings || 1) + (hh > 1 ? hh - 1 : 0), 0);
+  const cookFor = forHome ? (hh > 1 ? servings + hh - 1 : servings) + restServings : servings;
+  const whenLabel = (x) => (x.date === slotCtx?.date ? (x.meal === 'diner' ? 'ce soir' : 'ce midi') : `${relDay(x.date).toLowerCase()} ${x.meal === 'dej' ? 'midi' : 'soir'}`);
+  const cookLabel = [hh > 1 ? householdLabel(s.profile.household).toLowerCase() : null, rest.length ? `${fmtPortion(cookFor)} (ce repas + reste ${rest.map(whenLabel).join(', ')})` : null].filter(Boolean).join(' · ');
   const lines = useMemo(() => (r ? recipeLines(r, swaps, cookFor, slotOver) : []), [r, swaps, cookFor, slotOver]);
   if (!r) return null;
   const base = recipeLines(r, swaps);
@@ -70,9 +76,9 @@ export function RecipeSheet({ recipeId, onClose, target, slot: slotCtx }) {
           <button type="button" class="btn primary grow" disabled=${!pick} onClick=${confirm}><${Icon} name="check" size=${18} />Valider</button></div>
       </div>`
     : plannedHere ? html`<div class="stack" style="gap:8px">
-        ${plannedHere.meal === 'dej' && html`<button type="button" class="btn ghost block" onClick=${() => { planLeftover(plannedHere.date, 'dej', { date: plannedHere.date, meal: 'diner' }); onClose(); }}><${Icon} name="refresh" size=${16} />En double : ce soir</button>`}
-        ${(plannedHere.meal === 'dej' || plannedHere.meal === 'diner') && html`<button type="button" class="btn ghost block" onClick=${() => { planLeftover(plannedHere.date, plannedHere.meal, { date: addDays(plannedHere.date, 1), meal: 'dej' }); onClose(); }}><${Icon} name="refresh" size=${16} />En double : demain midi</button>`}
-        ${(plannedHere.meal === 'dej' || plannedHere.meal === 'diner') && html`<button type="button" class="btn ghost block" onClick=${() => { planLeftover(plannedHere.date, plannedHere.meal, { date: addDays(plannedHere.date, 1), meal: 'diner' }); onClose(); }}><${Icon} name="refresh" size=${16} />En double : demain soir</button>`}
+        ${!rest.length && !plannedSlot?.leftover && plannedHere.meal === 'dej' && html`<button type="button" class="btn ghost block" onClick=${() => { planLeftover(plannedHere.date, 'dej', { date: plannedHere.date, meal: 'diner' }); onClose(); }}><${Icon} name="refresh" size=${16} />En double : ce soir</button>`}
+        ${!rest.length && !plannedSlot?.leftover && (plannedHere.meal === 'dej' || plannedHere.meal === 'diner') && html`<button type="button" class="btn ghost block" onClick=${() => { planLeftover(plannedHere.date, plannedHere.meal, { date: addDays(plannedHere.date, 1), meal: 'dej' }); onClose(); }}><${Icon} name="refresh" size=${16} />En double : demain midi</button>`}
+        ${!rest.length && !plannedSlot?.leftover && (plannedHere.meal === 'dej' || plannedHere.meal === 'diner') && html`<button type="button" class="btn ghost block" onClick=${() => { planLeftover(plannedHere.date, plannedHere.meal, { date: addDays(plannedHere.date, 1), meal: 'diner' }); onClose(); }}><${Icon} name="refresh" size=${16} />En double : demain soir</button>`}
         <button type="button" class="btn primary block lg" onClick=${onClose}><${Icon} name="check" size=${18} />OK</button>
       </div>`
     : html`<div class="row">
@@ -118,8 +124,9 @@ export function RecipeSheet({ recipeId, onClose, target, slot: slotCtx }) {
       <div class="subtle xs" style="margin:2px 0 8px">Tu gardes 1 portion maintenant et le reste va au frigo : ta journée ne compte que ce que tu manges.</div>
       <div class="chips">${doubleTargets.map((x) => html`<${Chip} sm onClick=${() => splitDouble(x)}>${x.label}</${Chip}>`)}</div>
     </div>`}
-    ${hh > 1 && html`<div class="chips" style="margin-bottom:8px">
-      <${Chip} sm active=${forHome} onClick=${() => setForHome(true)}>À cuisiner : ${householdLabel(s.profile.household).toLowerCase()}</${Chip}>
+    ${plannedSlot?.leftover && html`<div class="card tint-sage small" style="margin-bottom:10px">♻️ <b>C’est un reste</b> : il est cuisiné avec le repas d’avant, dont la fiche affiche les quantités pour tout le monde. Rien à acheter ni à préparer ici, juste à réchauffer.</div>`}
+    ${(hh > 1 || rest.length > 0) && html`<div class="chips" style="margin-bottom:8px">
+      <${Chip} sm active=${forHome} onClick=${() => setForHome(true)}>À cuisiner : ${cookLabel}</${Chip}>
       <${Chip} sm active=${!forHome} onClick=${() => setForHome(false)}>Ma portion</${Chip}>
     </div>`}
     <div class="list">
@@ -137,8 +144,8 @@ export function RecipeSheet({ recipeId, onClose, target, slot: slotCtx }) {
               : html`<span class="thumb sm" style="background:var(--surface-2)">${ing.emoji}</span>`}
             <div class="grow" style="min-width:0">
               <div class="strong small">${ref ? productTitle(ref) : ing.name}${it === 'refuge' ? ' 💙' : it === 'doux' ? ' 🌱' : ''}</div>
-              <div class="subtle row" style="gap:6px"><span class=${`dot ${status}`}></span>
-                ${status === 'ok' ? 'En stock' : status === 'part' ? `En partie (${fmtQty(have, ing.unit, l.ing)})` : 'À acheter'}
+              <div class="subtle row" style="gap:6px">${plannedSlot?.leftover ? html`<span>♻️ Cuisiné avec le repas d’avant</span>` : html`<span class=${`dot ${status}`}></span>
+                ${status === 'ok' ? 'En stock' : status === 'part' ? `En partie (${fmtQty(have, ing.unit, l.ing)})` : 'À acheter'}`}
                 ${l.swapped && html`<span>· remplace ${ING[l.swapped].name.toLowerCase()}</span>`}
                 ${status !== 'no' && stockSubstitute(s, l.ing, l.qty) && html`<span>· avec ton ${stockSubstitute(s, l.ing, l.qty).toLowerCase()}</span>`}</div>
             </div>
